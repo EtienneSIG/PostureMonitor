@@ -4,7 +4,6 @@
 
 ### **🖥️ Option 1: Modern GUI Version (Recommended)**
 ```bash
-cd "c:\Users\esigwald\Documents\03_Dev\24_Posture"
 python posture_monitor_gui.py
 ```
 
@@ -17,7 +16,6 @@ python posture_monitor_gui.py
 
 ### **🖼️ Option 2: Original OpenCV Version**
 ```bash
-cd "c:\Users\esigwald\Documents\03_Dev\24_Posture"
 python posture_monitor.py
 ```
 
@@ -242,3 +240,4 @@ The GUI is organized into **three main panels**:
 
 
 Your posture monitoring solution is now **professional-grade** with options for every user! 🌟
+
