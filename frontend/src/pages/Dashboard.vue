@@ -28,7 +28,7 @@
       <div class="stat-card">
         <h3>Avg Spine Angle</h3>
         <p class="big-number">{{ stats.avgSpineAngle.toFixed(1) }}°</p>
-        <p class="stat-label">Target: 85-95°</p>
+        <p class="stat-label">Target: ≥80° (upright)</p>
       </div>
 
       <div class="stat-card">
@@ -72,8 +72,13 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, watch } from 'vue'
 import { useUserStore } from '../stores/userStore'
+import api from '../api/client'
+
+const props = defineProps({
+  active: { type: Boolean, default: true }
+})
 
 const userStore = useUserStore()
 const loading = ref(true)
@@ -90,26 +95,44 @@ const formatTime = (timestamp) => {
 }
 
 const loadHistory = async () => {
-  try {
-    const res = await userStore.api.get(`/posture/history?limit=20`)
-    recentData.value = res.data
-    
-    // Calculate stats
-    if (recentData.value.length > 0) {
-      stats.value.alertCount = recentData.value.filter(d => d.alert_triggered).length
-      stats.value.avgSpineAngle = recentData.value.reduce((sum, d) => sum + (d.spine_angle || 0), 0) / recentData.value.length
-      stats.value.bestPosture = Math.max(...recentData.value.map(d => d.shoulder_symmetry || 0))
-      stats.value.totalSessions = 1 // Simplified
-    }
-  } catch (err) {
-    console.error('Error loading history:', err)
-  } finally {
-    loading.value = false
+  loading.value = true
+
+  // Load the two data sources independently so a failure in one (e.g. a
+  // transient backend reload) does not wipe out the other.
+  const [historyResult, statsResult] = await Promise.allSettled([
+    api.get(`/posture/history?limit=20`),
+    api.get(`/posture/stats`)
+  ])
+
+  if (historyResult.status === 'fulfilled') {
+    recentData.value = historyResult.value.data
+  } else {
+    console.error('Error loading history:', historyResult.reason)
   }
+
+  if (statsResult.status === 'fulfilled' && statsResult.value.data) {
+    const data = statsResult.value.data
+    stats.value.totalSessions = data.total_sessions || 0
+    stats.value.alertCount = data.alert_count || 0
+    stats.value.avgSpineAngle = data.avg_spine_angle || 0.0
+    stats.value.bestPosture = data.best_posture || 0.0
+  } else if (statsResult.status === 'rejected') {
+    console.error('Error loading stats:', statsResult.reason)
+  }
+
+  loading.value = false
 }
 
 onMounted(() => {
   loadHistory()
+})
+
+// Reload stats each time the Dashboard becomes visible (pages use v-show, so
+// onMounted only fires once for the lifetime of the app).
+watch(() => props.active, (isActive) => {
+  if (isActive) {
+    loadHistory()
+  }
 })
 </script>
 

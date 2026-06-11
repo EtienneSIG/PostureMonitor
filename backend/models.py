@@ -29,6 +29,8 @@ class User(Base):
     
     id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
     email = Column(String, nullable=True, index=True)  # Optional for local use
+    password_hash = Column(String, nullable=True)  # bcrypt hash for local login
+    recovery_code_hash = Column(String, nullable=True)  # bcrypt hash of recovery code (offline password reset)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     last_active_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     deleted_at = Column(DateTime, nullable=True)  # Soft delete for audit trail
@@ -166,10 +168,26 @@ class UserCreateRequest(BaseModel):
     """User creation request with mandatory consent."""
     
     email: Optional[str] = None
+    password: Optional[str] = Field(default=None, description="Password for local login (min 8 chars)")
     region: str = Field(default="EU", description="EU, US, CA, or MX")
     date_of_birth: Optional[datetime] = None
     consent_given: bool = Field(default=False, description="Must be True to proceed")
     consent_version: str = Field(default="1.0")
+
+
+class LoginRequest(BaseModel):
+    """Local login request (email + password)."""
+
+    email: str = Field(description="Registered email address")
+    password: str = Field(description="Account password")
+
+
+class ResetPasswordRequest(BaseModel):
+    """Offline password reset using a recovery code."""
+
+    email: str = Field(description="Registered email address")
+    recovery_code: str = Field(description="Recovery code provided at registration")
+    new_password: str = Field(description="New password (min 8 chars)")
 
 
 class UserResponse(BaseModel):
@@ -180,6 +198,7 @@ class UserResponse(BaseModel):
     created_at: datetime
     consent_given_at: Optional[datetime]
     region: str
+    recovery_code: Optional[str] = None  # Only populated once at registration / reset
     
     class Config:
         from_attributes = True

@@ -1,7 +1,10 @@
 <template>
   <div class="app">
-    <!-- Consent Gate (must be first) -->
-    <ConsentGate v-if="!userStore.hasConsent" @consented="handleConsent" />
+    <!-- Auth Gate (local login/register) - must be first -->
+    <AuthGate v-if="!userStore.isAuthenticated" @authenticated="handleAuthenticated" />
+    
+    <!-- Consent Gate (must be before AgeGate) -->
+    <ConsentGate v-else-if="!userStore.hasConsent" @consented="handleConsent" />
     
     <!-- Age Gate (COPPA - NA-04) -->
     <AgeGate v-else-if="!userStore.ageVerified" @verified="handleAgeVerified" />
@@ -45,19 +48,14 @@
 
       <main class="app-main">
         <div class="container">
-          <!-- Dashboard -->
-          <Dashboard v-if="currentPage === 'dashboard'" />
-          
-          <!-- Monitor -->
-          <PostureMonitor v-else-if="currentPage === 'monitor'" />
-          
-          <!-- Privacy & Data -->
-          <PrivacyCenter v-else-if="currentPage === 'privacy'" />
+          <Dashboard v-show="currentPage === 'dashboard'" :active="currentPage === 'dashboard'" />
+          <PostureMonitor v-show="currentPage === 'monitor'" :active="currentPage === 'monitor'" />
+          <PrivacyCenter v-show="currentPage === 'privacy'" />
         </div>
       </main>
 
       <footer class="app-footer">
-        <p>&copy; 2026 Posture Monitor Pro. All data is processed locally.</p>
+        <p>&copy; 2026 Posture Monitor Pro. All data is processed locally. User: {{ userStore.userEmail || 'Guest' }}</p>
       </footer>
     </div>
   </div>
@@ -66,6 +64,7 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { useUserStore } from './stores/userStore'
+import AuthGate from './components/AuthGate.vue'
 import ConsentGate from './components/ConsentGate.vue'
 import AgeGate from './components/AgeGate.vue'
 import Dashboard from './pages/Dashboard.vue'
@@ -75,6 +74,12 @@ import PrivacyCenter from './pages/PrivacyCenter.vue'
 const userStore = useUserStore()
 const currentPage = ref('dashboard')
 
+const handleAuthenticated = ({ email }) => {
+  // User is now authenticated and has given consent
+  userStore.setConsent(true)
+  userStore.setLanguage(userStore.language)
+}
+
 const handleConsent = ({ language, analyticsEnabled }) => {
   userStore.setConsent(true)
   userStore.setLanguage(language)
@@ -82,7 +87,9 @@ const handleConsent = ({ language, analyticsEnabled }) => {
 }
 
 const handleAgeVerified = async ({ dateOfBirth }) => {
-  await userStore.registerUser({ dateOfBirth, region: 'EU' })
+  // Update user with age verification
+  userStore.setAgeVerified(true)
+  userStore.setPendingDateOfBirth(null)
 }
 
 const handleLogout = () => {

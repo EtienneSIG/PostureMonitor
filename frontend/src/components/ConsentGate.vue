@@ -71,6 +71,7 @@
 <script setup>
 import { ref, watch, onMounted } from 'vue'
 import { useUserStore } from '../stores/userStore'
+import api from '../api/client'
 
 const emit = defineEmits(['consented'])
 const userStore = useUserStore()
@@ -87,10 +88,10 @@ const loadPolicyTexts = async () => {
   loadError.value = ''
   
   try {
-    const policyRes = await userStore.api.get(`/privacy/policy/${selectedLanguage.value}`)
+    const policyRes = await api.get(`/privacy/policy/${selectedLanguage.value}`)
     privacyPolicy.value = policyRes.data.policy
     
-    const consentRes = await userStore.api.get(`/privacy/consent-text/${selectedLanguage.value}`)
+    const consentRes = await api.get(`/privacy/consent-text/${selectedLanguage.value}`)
     consentText.value = consentRes.data.consent_text
   } catch (err) {
     console.error('Error loading privacy policy:', err)

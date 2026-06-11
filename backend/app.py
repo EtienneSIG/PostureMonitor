@@ -25,6 +25,7 @@ import cv2
 import numpy as np
 import asyncio
 import json as json_lib
+import math
 
 # Import local modules
 from backend.config import (
@@ -34,9 +35,45 @@ from backend.config import (
 from backend.models import (
     Base, User, PostureData, ConsentLog, AuditLog, DSARRequest, RetentionPolicy,
     UserCreateRequest, UserResponse, PostureDataResponse,
-    ConsentUpdateRequest, DSARRequestCreate, DSARRequestResponse, AuditLogResponse
+    ConsentUpdateRequest, DSARRequestCreate, DSARRequestResponse, AuditLogResponse,
+    LoginRequest, ResetPasswordRequest
 )
 from posture_analyzer import PostureAnalyzer
+
+# Password hashing (local accounts) — bcrypt directly to avoid passlib/bcrypt
+# version incompatibilities.
+import bcrypt
+import secrets
+
+
+def hash_password(password: str) -> str:
+    """Hash a plaintext password with bcrypt."""
+    return bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
+
+
+def verify_password(password: str, password_hash: str) -> bool:
+    """Verify a plaintext password against a stored bcrypt hash."""
+    if not password_hash:
+        return False
+    try:
+        return bcrypt.checkpw(password.encode("utf-8"), password_hash.encode("utf-8"))
+    except ValueError:
+        return False
+
+
+def generate_recovery_code() -> str:
+    """Generate a human-readable recovery code: 4 groups of 4 uppercase chars.
+
+    Excludes ambiguous characters (0/O, 1/I) for easier manual entry.
+    """
+    alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
+    groups = ["".join(secrets.choice(alphabet) for _ in range(4)) for _ in range(4)]
+    return "-".join(groups)
+
+
+def normalize_recovery_code(code: str) -> str:
+    """Normalize a recovery code for comparison (uppercase, no spaces)."""
+    return (code or "").strip().upper().replace(" ", "")
 
 # ============================================================================
 # SETUP
@@ -50,6 +87,24 @@ logger = logging.getLogger(__name__)
 engine = create_engine(DatabaseConfig.DB_URL, connect_args={"check_same_thread": False})
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base.metadata.create_all(bind=engine)
+
+
+def _ensure_schema():
+    """Lightweight migration: add columns that may be missing on existing DBs."""
+    from sqlalchemy import text
+    with engine.connect() as conn:
+        cols = [row[1] for row in conn.execute(text("PRAGMA table_info(users)"))]
+        if "password_hash" not in cols:
+            conn.execute(text("ALTER TABLE users ADD COLUMN password_hash VARCHAR"))
+            conn.commit()
+            logger.info("Migration: added users.password_hash column")
+        if "recovery_code_hash" not in cols:
+            conn.execute(text("ALTER TABLE users ADD COLUMN recovery_code_hash VARCHAR"))
+            conn.commit()
+            logger.info("Migration: added users.recovery_code_hash column")
+
+
+_ensure_schema()
 
 # FastAPI app
 app = FastAPI(
@@ -93,21 +148,188 @@ def summarize_analysis(frame: np.ndarray) -> dict:
 
     analysis = analyzer.analyze_posture(frame)
     angles = analysis.get("angles", {})
+    key_points = analysis.get("key_points", {})
     issues = analysis.get("issues", [])
     confidence = analysis.get("confidence", 0.0)
 
-    spine_angle = angles.get("head_shoulder_angle")
+    def _to_deg(horizontal: float, vertical: float) -> float:
+        # Convert normalized landmark offsets into a geometric angle in degrees.
+        if vertical <= 1e-6:
+            return 90.0
+        return math.degrees(math.atan2(abs(horizontal), vertical))
+
+    def _clamp01(value: float) -> float:
+        """Clamp value to [0, 1] range."""
+        return max(0.0, min(1.0, value))
+
+    # Estimate forehead from eyes + nose when available.
+    forehead = None
+    if all(k in key_points for k in ("left_eye", "right_eye", "nose")):
+        left_eye = key_points["left_eye"]
+        right_eye = key_points["right_eye"]
+        nose = key_points["nose"]
+        eye_mid_x = (left_eye[0] + right_eye[0]) / 2.0
+        eye_mid_y = (left_eye[1] + right_eye[1]) / 2.0
+        # Extend from nose toward eye center to approximate forehead center.
+        forehead_x = eye_mid_x + (eye_mid_x - nose[0]) * 0.8
+        forehead_y = eye_mid_y + (eye_mid_y - nose[1]) * 0.8
+        forehead = (_clamp01(forehead_x), _clamp01(forehead_y))
+        key_points["forehead"] = forehead
+
+    spine_angle = None
+    neck_angle = None
     shoulder_symmetry = None
-    if "shoulder_slope" in angles:
-        shoulder_symmetry = max(0.0, 100.0 - min(abs(angles["shoulder_slope"]) * 100.0, 100.0))
+
+    if all(k in key_points for k in ("left_shoulder", "right_shoulder")):
+        left_shoulder = key_points["left_shoulder"]
+        right_shoulder = key_points["right_shoulder"]
+        shoulder_mid_x = (left_shoulder[0] + right_shoulder[0]) / 2.0
+        shoulder_mid_y = (left_shoulder[1] + right_shoulder[1]) / 2.0
+
+        shoulder_diff = abs(left_shoulder[1] - right_shoulder[1])
+        shoulder_symmetry = max(0.0, 100.0 - min(shoulder_diff * 1000.0, 100.0))
+
+        # Use forehead if available, otherwise use nose
+        head_anchor = forehead or key_points.get("nose")
+        if head_anchor:
+            # Postural alignment angle, craniovertebral-angle (CVA) convention:
+            # 90 deg = head perfectly stacked above the shoulders (ideal upright).
+            # The angle decreases as the head deviates forward/sideways. In the
+            # posture literature, forward head posture is defined by a *reduced*
+            # angle, so higher is better here.
+            deviation = _to_deg(head_anchor[0] - shoulder_mid_x, shoulder_mid_y - head_anchor[1])
+            spine_angle = max(0.0, 90.0 - deviation)
+
+        if "left_ear" in key_points and "right_ear" in key_points and "nose" in key_points:
+            left_ear = key_points["left_ear"]
+            right_ear = key_points["right_ear"]
+            nose = key_points["nose"]
+            ear_mid_x = (left_ear[0] + right_ear[0]) / 2.0
+            ear_mid_y = (left_ear[1] + right_ear[1]) / 2.0
+            
+            # Neck angle: Measure the angle between shoulder and neck (ear level)
+            # Also factor in the nose position for better forward/backward detection
+            # Combine ear and nose reference point for robustness
+            neck_ref_x = (ear_mid_x + nose[0]) / 2.0
+            neck_ref_y = (ear_mid_y + nose[1]) / 2.0
+            
+            # Primary neck angle: ear-to-shoulder
+            neck_angle = _to_deg(ear_mid_x - shoulder_mid_x, shoulder_mid_y - ear_mid_y)
+            
+            # Secondary neck forward/backward angle: if nose is far from shoulders, neck is bent
+            # A value > 0 indicates forward bend, < 0 indicates backward (rare)
+            nose_to_shoulder_dy = shoulder_mid_y - neck_ref_y
+            # If nose is close to shoulder vertically, neck is very bent forward
+            if nose_to_shoulder_dy < 0.05:  # Very close to shoulder = strong forward bend
+                neck_angle = min(90.0, neck_angle + 20.0)  # Boost angle to reflect forward bend
+
+    # Fallback to analyzer-provided values for compatibility.
+    if spine_angle is None:
+        if angles.get("head_shoulder_angle") is not None:
+            spine_angle = float(angles["head_shoulder_angle"])
+        elif angles.get("head_forward") is not None:
+            spine_angle = abs(float(angles["head_forward"])) * 180.0
+
+    if neck_angle is None:
+        if angles.get("neck_angle") is not None:
+            neck_angle = float(angles["neck_angle"])
+        elif angles.get("head_tilt") is not None:
+            neck_angle = abs(float(angles["head_tilt"])) * 180.0
+
+    if shoulder_symmetry is None:
+        if angles.get("shoulder_slope") is not None:
+            shoulder_symmetry = max(0.0, 100.0 - min(abs(float(angles["shoulder_slope"])) * 100.0, 100.0))
+        elif angles.get("shoulder_alignment") is not None:
+            shoulder_symmetry = max(0.0, 100.0 - min(abs(float(angles["shoulder_alignment"])) * 1000.0, 100.0))
+
+    # Calculate head tilt angles (left/right and forward/backward)
+    head_tilt_lr = None  # Left/Right tilt in degrees
+    head_forward_tilt = None  # Forward/Backward tilt in degrees
+
+    # Head tilt left/right: Use eyes or ears to determine head rotation
+    if all(k in key_points for k in ("left_eye", "right_eye")):
+        left_eye = key_points["left_eye"]
+        right_eye = key_points["right_eye"]
+        # Calculate angle of the eye line relative to horizontal (0 degrees = level)
+        eye_dy = right_eye[1] - left_eye[1]
+        eye_dx = right_eye[0] - left_eye[0]
+        if abs(eye_dx) > 1e-6:
+            head_tilt_lr = math.degrees(math.atan(eye_dy / eye_dx))
+            # Positive = right eye lower (tilt left), Negative = left eye lower (tilt right)
+    elif all(k in key_points for k in ("left_ear", "right_ear")):
+        left_ear = key_points["left_ear"]
+        right_ear = key_points["right_ear"]
+        ear_dy = right_ear[1] - left_ear[1]
+        ear_dx = right_ear[0] - left_ear[0]
+        if abs(ear_dx) > 1e-6:
+            head_tilt_lr = math.degrees(math.atan(ear_dy / ear_dx))
+
+    # Head tilt forward/backward: Compare head position to shoulder position
+    if (forehead or key_points.get("nose")) and all(k in key_points for k in ("left_shoulder", "right_shoulder")):
+        head_anchor = forehead or key_points.get("nose")
+        left_shoulder = key_points["left_shoulder"]
+        right_shoulder = key_points["right_shoulder"]
+        shoulder_mid_y = (left_shoulder[1] + right_shoulder[1]) / 2.0
+        
+        # Forward tilt: If head is far forward, the horizontal distance from center is large
+        # Backward tilt: If head is too far back (rare), head would be closer to shoulder vertically
+        head_to_shoulder_dy = shoulder_mid_y - head_anchor[1]  # Positive = shoulder below head (normal)
+        
+        # If eyes and ears exist, use them to gauge head inclination
+        if all(k in key_points for k in ("left_eye", "right_eye", "left_ear", "right_ear")):
+            left_eye = key_points["left_eye"]
+            right_eye = key_points["right_eye"]
+            left_ear = key_points["left_ear"]
+            right_ear = key_points["right_ear"]
+            
+            # Eye vertical center
+            eye_y = (left_eye[1] + right_eye[1]) / 2.0
+            ear_y = (left_ear[1] + right_ear[1]) / 2.0
+            
+            # Distance from eyes to shoulders (negative = forward)
+            eye_to_shoulder = shoulder_mid_y - eye_y
+            ear_to_shoulder = shoulder_mid_y - ear_y
+            
+            # A forward-tilted head means the ear is closer to shoulder (smaller distance)
+            # Backward-tilted head means the ear is further from shoulder (larger distance)
+            # Normalize to -90 to 90 degrees range
+            if ear_to_shoulder >= 0:
+                # Normal position: 0 degrees (ear above shoulder)
+                # Maximum forward tilt: ~45 degrees (ear near shoulder level)
+                head_forward_tilt = min(45.0, max(0.0, 45.0 * (1.0 - ear_to_shoulder / 0.15)))
+            else:
+                # Backward tilt (ear below shoulder) - this is abnormal
+                head_forward_tilt = max(-45.0, min(0.0, -45.0 * abs(ear_to_shoulder) / 0.1))
+
+    raw_key_points = analysis.get("key_points", {}) or {}
+    tracked_keys = [
+        "forehead",
+        "nose",
+        "left_eye",
+        "right_eye",
+        "left_ear",
+        "right_ear",
+        "left_shoulder",
+        "right_shoulder",
+        "left_hip",
+        "right_hip",
+    ]
+    key_points_filtered = {
+        key: raw_key_points[key]
+        for key in tracked_keys
+        if key in raw_key_points
+    }
 
     return {
         "spine_angle": spine_angle,
         "shoulder_symmetry": shoulder_symmetry,
-        "neck_angle": angles.get("neck_angle"),
+        "neck_angle": neck_angle,
+        "head_tilt_lr": head_tilt_lr,
+        "head_forward_tilt": head_forward_tilt,
         "alert": not analysis.get("good_posture", True),
         "issues": issues,
         "confidence": confidence,
+        "key_points": key_points_filtered,
     }
 
 
@@ -222,11 +444,12 @@ async def register_user(
     db: Session = Depends(get_db)
 ) -> UserResponse:
     """
-    Register new user with mandatory consent (EU-02, NA-03, COPPA).
+    Register new user with mandatory consent and optional password.
     
     Compliance notes:
     - Explicit consent required
     - Age check for COPPA
+    - Password hashed with bcrypt if provided
     """
     
     # Age gate (COPPA - NA-04)
@@ -243,10 +466,30 @@ async def register_user(
     if not req.consent_given:
         raise HTTPException(status_code=400, detail="Consent is mandatory")
     
+    # Email uniqueness check (if email provided)
+    if req.email:
+        existing = db.query(User).filter(User.email == req.email).first()
+        if existing:
+            raise HTTPException(status_code=409, detail="Email already registered")
+    
+    # Password validation (if password provided)
+    if req.password:
+        if len(req.password) < 8:
+            raise HTTPException(status_code=400, detail="Password must be at least 8 characters")
+    
+    # Generate a recovery code for offline password reset (only if password set)
+    recovery_code = None
+    recovery_code_hash = None
+    if req.password:
+        recovery_code = generate_recovery_code()
+        recovery_code_hash = hash_password(recovery_code)
+    
     # Create user
     user = User(
         id=str(uuid.uuid4()),
         email=req.email,
+        password_hash=hash_password(req.password) if req.password else None,
+        recovery_code_hash=recovery_code_hash,
         region=req.region,
         date_of_birth=req.date_of_birth,
         consent_version=req.consent_version,
@@ -261,7 +504,82 @@ async def register_user(
     # Log consent (EU-05)
     log_consent_change(db, user.id, "given", "posture_tracking", req.consent_version)
     
+    # Return recovery code ONCE so the user can save it
+    response = serialize_model(UserResponse, user)
+    response.recovery_code = recovery_code
+    return response
+
+
+@app.post("/api/users/login", response_model=UserResponse)
+async def login_user(
+    req: LoginRequest,
+    db: Session = Depends(get_db)
+) -> UserResponse:
+    """
+    Local login with email + password. Returns user profile if credentials match.
+    """
+    
+    user = db.query(User).filter(User.email == req.email).first()
+    if not user or not user.password_hash or not verify_password(req.password, user.password_hash):
+        log_audit(db, "LOGIN", "failed", status="failed", error_message="Invalid credentials")
+        raise HTTPException(status_code=401, detail="Invalid email or password")
+    
+    if user.deleted_at:
+        raise HTTPException(status_code=410, detail="Account has been deleted")
+    
+    if not user.consent_given_at:
+        raise HTTPException(status_code=403, detail="User must provide consent first")
+    
+    # Update last active
+    user.last_active_at = datetime.utcnow()
+    db.commit()
+    
+    log_audit(db, "LOGIN", "success", user.id)
+    
     return serialize_model(UserResponse, user)
+
+
+@app.post("/api/users/reset-password", response_model=UserResponse)
+async def reset_password(
+    req: ResetPasswordRequest,
+    db: Session = Depends(get_db)
+) -> UserResponse:
+    """
+    Offline password reset using the recovery code issued at registration.
+
+    Returns a NEW recovery code (single use) on success so the previous one
+    cannot be reused.
+    """
+
+    # Validate new password
+    if len(req.new_password) < 8:
+        raise HTTPException(status_code=400, detail="Password must be at least 8 characters")
+
+    user = db.query(User).filter(User.email == req.email).first()
+    if (
+        not user
+        or not user.recovery_code_hash
+        or not verify_password(normalize_recovery_code(req.recovery_code), user.recovery_code_hash)
+    ):
+        log_audit(db, "PASSWORD_RESET", "failed", status="failed", error_message="Invalid recovery code")
+        raise HTTPException(status_code=401, detail="Invalid email or recovery code")
+
+    if user.deleted_at:
+        raise HTTPException(status_code=410, detail="Account has been deleted")
+
+    # Set new password and rotate the recovery code
+    new_recovery_code = generate_recovery_code()
+    user.password_hash = hash_password(req.new_password)
+    user.recovery_code_hash = hash_password(new_recovery_code)
+    user.last_active_at = datetime.utcnow()
+    db.commit()
+    db.refresh(user)
+
+    log_audit(db, "PASSWORD_RESET", "success", user.id)
+
+    response = serialize_model(UserResponse, user)
+    response.recovery_code = new_recovery_code
+    return response
 
 
 @app.get("/api/users/{user_id}", response_model=UserResponse)
@@ -373,13 +691,18 @@ async def websocket_posture(websocket: WebSocket, user_id: str, db: Session = De
     
     finally:
         cap.release()
-        await websocket.close()
+        try:
+            await websocket.close()
+        except RuntimeError:
+            # Socket may already be closed when client disconnects quickly.
+            pass
 
 
 @app.post("/api/posture/analyze")
 async def analyze_posture(
     file: UploadFile = File(...),
     user_id: str = None,
+    session_id: str = None,
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
@@ -403,6 +726,7 @@ async def analyze_posture(
     # Store aggregated metrics only
     posture = PostureData(
         user_id=user_id or user.id,
+        session_id=session_id,
         spine_angle=results.get("spine_angle"),
         shoulder_symmetry=results.get("shoulder_symmetry"),
         neck_angle=results.get("neck_angle"),
@@ -435,6 +759,45 @@ async def get_posture_history(
     log_audit(db, "DATA_ACCESS", "history_retrieved", user.id, resource="posture_history")
     
     return [serialize_model(PostureDataResponse, d) for d in data]
+
+
+@app.get("/api/posture/stats")
+async def get_posture_stats(
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+) -> dict:
+    """Aggregated posture statistics for the dashboard."""
+
+    week_ago = datetime.utcnow() - timedelta(days=7)
+
+    # All records for this user in the last 7 days
+    records = db.query(PostureData)\
+        .filter(PostureData.user_id == user.id)\
+        .filter(PostureData.timestamp >= week_ago)\
+        .all()
+
+    # Count distinct sessions (records without a session_id count as one legacy session)
+    session_ids = {r.session_id for r in records if r.session_id}
+    has_legacy = any(r.session_id is None for r in records)
+    total_sessions = len(session_ids) + (1 if has_legacy else 0)
+
+    alert_count = sum(1 for r in records if r.alert_triggered)
+
+    spine_values = [r.spine_angle for r in records if r.spine_angle is not None]
+    avg_spine_angle = sum(spine_values) / len(spine_values) if spine_values else 0.0
+
+    symmetry_values = [r.shoulder_symmetry for r in records if r.shoulder_symmetry is not None]
+    best_posture = max(symmetry_values) if symmetry_values else 0.0
+
+    log_audit(db, "DATA_ACCESS", "stats_retrieved", user.id, resource="posture_stats")
+
+    return {
+        "total_sessions": total_sessions,
+        "alert_count": alert_count,
+        "avg_spine_angle": round(avg_spine_angle, 1),
+        "best_posture": round(best_posture, 1),
+        "total_records": len(records),
+    }
 
 
 # ============================================================================

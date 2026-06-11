@@ -88,6 +88,7 @@
 <script setup>
 import { ref } from 'vue'
 import { useUserStore } from '../stores/userStore'
+import api from '../api/client'
 
 const userStore = useUserStore()
 const exporting = ref(false)
@@ -100,7 +101,7 @@ const successMessage = ref('')
 const exportData = async () => {
   exporting.value = true
   try {
-    const res = await userStore.api.get('/dsar/export', {
+    const res = await api.get('/dsar/export', {
       responseType: 'blob'
     })
     
@@ -131,7 +132,7 @@ const closeDeleteConfirm = () => {
 const confirmDelete = async () => {
   deleting.value = true
   try {
-    await userStore.api.delete(`/users/${userStore.userId}/data`)
+    await api.delete(`/users/${userStore.userId}/data`)
     successMessage.value = 'Your data has been deleted. Logging out...'
     setTimeout(() => {
       userStore.logout()
@@ -147,7 +148,7 @@ const confirmDelete = async () => {
 const submitDSAR = async () => {
   submittingDSAR.value = true
   try {
-    const res = await userStore.api.post('/dsar/request', {
+    const res = await api.post('/dsar/request', {
       request_type: dsarType.value
     })
     
@@ -166,7 +167,7 @@ const withdrawConsent = async () => {
   }
   
   try {
-    await userStore.api.put(`/users/${userStore.userId}/consent`, {
+    await api.put(`/users/${userStore.userId}/consent`, {
       consent_given: false
     })
     
