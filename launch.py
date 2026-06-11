@@ -17,14 +17,12 @@ Backend API available at http://127.0.0.1:8000 (local-only for privacy)
 import subprocess
 import sys
 import time
-import os
 from pathlib import Path
 import signal
 import threading
 
 # Directories
 ROOT_DIR = Path(__file__).parent
-BACKEND_DIR = ROOT_DIR / "backend"
 FRONTEND_DIR = ROOT_DIR / "frontend"
 
 # Process references
@@ -56,10 +54,10 @@ def start_backend():
         # Stream output
         def read_output(pipe, label):
             for line in pipe:
-                print(f"[Backend] {line}", end='')
+                print(f"[{label}] {line}", end='')
         
-        stdout_thread = threading.Thread(target=read_output, args=(backend_process.stdout, "Backend"), daemon=True)
-        stdout_thread.start()
+        threading.Thread(target=read_output, args=(backend_process.stdout, "Backend"), daemon=True).start()
+        threading.Thread(target=read_output, args=(backend_process.stderr, "Backend"), daemon=True).start()
         
         print("✓ Backend started successfully")
         return True
@@ -102,10 +100,10 @@ def start_frontend():
         # Stream output
         def read_output(pipe, label):
             for line in pipe:
-                print(f"[Frontend] {line}", end='')
+                print(f"[{label}] {line}", end='')
         
-        stdout_thread = threading.Thread(target=read_output, args=(frontend_process.stdout, "Frontend"), daemon=True)
-        stdout_thread.start()
+        threading.Thread(target=read_output, args=(frontend_process.stdout, "Frontend"), daemon=True).start()
+        threading.Thread(target=read_output, args=(frontend_process.stderr, "Frontend"), daemon=True).start()
         
         print("✓ Frontend started successfully")
         return True
