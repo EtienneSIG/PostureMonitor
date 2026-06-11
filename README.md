@@ -1,65 +1,63 @@
 # Posture Monitor Pro
 
-Application locale de suivi de posture avec interface moderne et exigences de conformite integrees.
+Local posture tracking application with a modern interface and built-in compliance requirements.
 
-## ⚠️ Avertissement
+## ⚠️ Disclaimer
 
-Posture Monitor Pro **n'est pas un dispositif medical** et ne fournit aucun diagnostic, traitement ou avis medical. Il s'agit d'un simple outil d'aide destine a sensibiliser l'utilisateur a sa posture.
+Posture Monitor Pro **is not a medical device** and does not provide any diagnosis, treatment, or medical advice. It is simply an assistive tool intended to raise the user's awareness of their posture.
 
-Les mesures et alertes affichees sont indicatives et peuvent etre inexactes. Elles ne remplacent en aucun cas l'avis d'un professionnel de sante qualifie. En cas de douleur, de gene ou de probleme de sante, consultez un medecin ou un professionnel de sante.
+The metrics and alerts displayed are indicative and may be inaccurate. They are in no way a substitute for the advice of a qualified healthcare professional. If you experience pain, discomfort, or any health issue, consult a doctor or a healthcare professional.
 
-L'utilisation de cette application releve de la seule responsabilite de l'utilisateur, qui est libre de s'en servir ou non. Les auteurs declinent toute responsabilite quant aux decisions prises ou aux consequences resultant de son utilisation.
+Use of this application is the sole responsibility of the user, who is free to use it or not. The authors accept no liability for decisions made or consequences resulting from its use.
 
-## Demarrage rapide
+## Quick start
 
-### Application moderne recommandee
+### Recommended modern application
 ```bash
 python launch.py
 ```
 
-Puis ouvrir `http://localhost:5173`.
+Then open `http://localhost:5173`.
 
-### Modes alternatifs
+### Alternative modes
 ```bash
 python launch.py --backend-only
 python launch.py --frontend-only
-python posture_monitor_gui.py
 ```
 
 ## Architecture
 
-- `frontend/`: interface moderne Vue 3 + Vite
-- `backend/`: API locale FastAPI + WebSocket
-- `launch.py`: lanceur unique backend + frontend
-- `reglementation.md`: suivi conformite Europe / North America
-- `posture_monitor_gui.py`: ancienne interface desktop conservee en secours
+- `frontend/`: modern Vue 3 + Vite interface
+- `backend/`: local FastAPI + WebSocket API
+- `launch.py`: single launcher for backend + frontend
+- `reglementation.md`: compliance tracking for Europe / North America
 
-## Fonctionnalites principales
+## Key features
 
-- monitoring de posture en temps reel
-- interface web locale plus simple d utilisation
-- consentement explicite avant usage
-- verification d age minimale
-- export et suppression des donnees utilisateur
-- logs d audit et retention des donnees
-- support anglais / francais
+- real-time posture monitoring
+- simpler-to-use local web interface
+- explicit consent before use
+- minimum age verification
+- export and deletion of user data
+- audit logs and data retention
+- English / French support
 
-## Conformite integree
+## Built-in compliance
 
-- RGPD: consentement, droit d acces, suppression, retention
-- ePrivacy: pas de traceurs tiers ajoutes
-- BIPA / biometrie: consentement explicite avant traitement
-- CCPA/CPRA: export et suppression des donnees
-- COPPA: controle d age
-- PIPEDA: approche privacy-first locale
+- GDPR: consent, right of access, deletion, retention
+- ePrivacy: no third-party trackers added
+- BIPA / biometrics: explicit consent before processing
+- CCPA/CPRA: data export and deletion
+- COPPA: age verification
+- PIPEDA: local privacy-first approach
 
-## Fichiers importants
+## Important files
 
-- `backend/app.py`: endpoints API et WebSocket
-- `backend/config.py`: regles de retention et conformite
-- `backend/models.py`: modeles de donnees et audit
-- `frontend/src/pages/PostureMonitor.vue`: ecran principal de monitoring
-- `frontend/src/pages/PrivacyCenter.vue`: gestion des droits utilisateur
+- `backend/app.py`: API and WebSocket endpoints
+- `backend/config.py`: retention and compliance rules
+- `backend/models.py`: data models and audit
+- `frontend/src/pages/PostureMonitor.vue`: main monitoring screen
+- `frontend/src/pages/PrivacyCenter.vue`: user rights management
 
 ## Installation
 
@@ -68,28 +66,27 @@ python posture_monitor_gui.py
 pip install -r requirements.txt
 ```
 
-Python 3.12 est maintenant supporte via le backend MediaPipe Tasks moderne.
-Python 3.11 reste le chemin le plus stable pour rester proche du backend historique et des anciennes integrations.
+Python 3.12 is now supported via the modern MediaPipe Tasks backend.
+Python 3.11 remains the most stable path to stay close to the legacy backend and older integrations.
 
-### Setup stable Python 3.11
+### Stable Python 3.11 setup
 ```powershell
 ./setup_py311.ps1
 ```
 
-Ce script prepare un environnement `.venv311` si Python 3.11 est installe localement.
+This script prepares a `.venv311` environment if Python 3.11 is installed locally.
 
 ### Node.js
-Node.js 18+ est requis pour le frontend.
+Node.js 18+ is required for the frontend.
 
-Au premier lancement, `launch.py` installe automatiquement les dependances frontend si necessaire.
+On first launch, `launch.py` automatically installs the frontend dependencies if needed.
 
 ## Notes
 
-- le traitement reste local par defaut
-- les frames video brutes ne doivent pas etre stockees durablement
-- le README historique de la GUI desktop a ete remplace par cette vue d ensemble du repo
-- sous Python 3.12, le modele `pose_landmarker_full.task` est telecharge automatiquement dans `.cache/` au premier demarrage
-- l endpoint `/health` indique si l analyseur de posture est disponible
+- processing stays local by default
+- raw video frames must not be stored persistently
+- on Python 3.12, the `pose_landmarker_full.task` model is downloaded automatically into `.cache/` on first start
+- the `/health` endpoint indicates whether the posture analyzer is available
 
-Voir aussi `backend/README.md`, `frontend/README.md` et `reglementation.md`.
+See also `backend/README.md`, `frontend/README.md`, and `reglementation.md`.
 

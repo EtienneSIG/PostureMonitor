@@ -80,8 +80,8 @@ PostureMonitor/
 │
 └── [existing Python files]
     ├── posture_analyzer.py
-    ├── posture_visualizer.py
-    ├── posture_monitor_gui.py   # (legacy, still available)
+    ├── posture_alerts.py
+    ├── posture_translator.py
     └── ...
 ```
 
