@@ -2,6 +2,10 @@
 
 FastAPI-based backend for real-time posture monitoring with GDPR/CCPA/BIPA compliance.
 
+Note environnement:
+- Python 3.11 est recommande pour l analyse de posture en temps reel avec l analyseur historique base sur MediaPipe.
+- Sous Python 3.12, le backend demarre en mode degrade si l API `mediapipe.solutions` n est pas disponible. Les endpoints de privacy, consentement et DSAR restent utilisables.
+
 ## Features
 
 - ✅ Real-time posture analysis via WebSocket
@@ -31,6 +35,8 @@ backend/
 - `GET /api/users/{user_id}` - Get user profile
 - `PUT /api/users/{user_id}/consent` - Update consent
 
+Authenticated API calls use the `X-User-Id` header after registration.
+
 ### Privacy & Compliance
 - `GET /api/privacy/policy/{language}` - Get privacy notice
 - `GET /api/privacy/consent-text/{language}` - Get consent text
@@ -39,6 +45,8 @@ backend/
 - `WebSocket /ws/posture/{user_id}` - Real-time WebSocket stream
 - `POST /api/posture/analyze` - Analyze single image
 - `GET /api/posture/history` - Get user's posture history
+
+If posture analysis is unavailable in the current environment, monitoring endpoints return an explicit `503` or WebSocket close reason instead of crashing the application.
 
 ### DSAR (Data Subject Access Requests)
 - `POST /api/dsar/request` - Create DSAR request

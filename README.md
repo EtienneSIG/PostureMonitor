@@ -60,6 +60,8 @@ python posture_monitor_gui.py
 pip install -r requirements.txt
 ```
 
+Python 3.11 est recommande pour le monitoring complet. Sous Python 3.12, l interface moderne et l API demarrent, mais l analyse de posture peut passer en mode degrade selon la version de MediaPipe disponible.
+
 ### Node.js
 Node.js 18+ est requis pour le frontend.
 
@@ -70,29 +72,7 @@ Au premier lancement, `launch.py` installe automatiquement les dependances front
 - le traitement reste local par defaut
 - les frames video brutes ne doivent pas etre stockees durablement
 - le README historique de la GUI desktop a ete remplace par cette vue d ensemble du repo
+- l endpoint `/health` indique si l analyseur de posture est disponible ou en mode degrade
 
 Voir aussi `backend/README.md`, `frontend/README.md` et `reglementation.md`.
-
-**Choose the version that fits your needs:**
-
-### **🖥️ For Ease of Use: GUI Version**
-- Modern interface
-- Point-and-click controls  
-- Professional appearance
-- Perfect for daily use
-
-### **🖼️ For Minimalism: Original Version**
-- Keyboard shortcuts
-- Minimal interface
-- Direct camera interaction
-- Perfect for power users
-
-**Both versions:**
-- ✅ **Exit cleanly** without killing terminal
-- ✅ **Support English and French**
-- ✅ **Include all posture features**
-- ✅ **Handle resources properly**
-
-
-Your posture monitoring solution is now **professional-grade** with options for every user! 🌟
 

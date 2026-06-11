@@ -75,12 +75,14 @@ import PrivacyCenter from './pages/PrivacyCenter.vue'
 const userStore = useUserStore()
 const currentPage = ref('dashboard')
 
-const handleConsent = () => {
+const handleConsent = ({ language, analyticsEnabled }) => {
   userStore.setConsent(true)
+  userStore.setLanguage(language)
+  userStore.setAnalyticsEnabled(analyticsEnabled)
 }
 
-const handleAgeVerified = () => {
-  userStore.setAgeVerified(true)
+const handleAgeVerified = async ({ dateOfBirth }) => {
+  await userStore.registerUser({ dateOfBirth, region: 'EU' })
 }
 
 const handleLogout = () => {

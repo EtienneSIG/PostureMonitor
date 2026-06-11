@@ -69,14 +69,12 @@ const consentText = ref('')
 
 const handleConsent = async () => {
   if (!userAgreesConsent.value) return
-  
-  try {
-    await userStore.registerUser(null, 'EU')
-    userStore.setLanguage(selectedLanguage.value)
-    emit('consented')
-  } catch (err) {
-    alert('Error during registration. Please try again.')
-  }
+
+  userStore.setLanguage(selectedLanguage.value)
+  emit('consented', {
+    language: selectedLanguage.value,
+    analyticsEnabled: userAgreesAnalytics.value
+  })
 }
 
 onMounted(async () => {

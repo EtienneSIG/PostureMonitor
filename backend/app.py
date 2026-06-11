@@ -12,19 +12,17 @@ Modern, compliant backend with:
 Run: uvicorn backend.app:app --host 127.0.0.1 --port 8000 --reload
 """
 
-from fastapi import FastAPI, Depends, HTTPException, UploadFile, File, WebSocket
+from fastapi import FastAPI, Depends, HTTPException, UploadFile, File, WebSocket, Header
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
-from sqlalchemy import create_engine, func
+from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, Session
 from datetime import datetime, timedelta
-import json
 import logging
 from typing import List, Optional
 import uuid
 import cv2
 import numpy as np
-from io import BytesIO
 import asyncio
 import json as json_lib
 
@@ -35,11 +33,10 @@ from backend.config import (
 )
 from backend.models import (
     Base, User, PostureData, ConsentLog, AuditLog, DSARRequest, RetentionPolicy,
-    UserCreateRequest, UserResponse, PostureDataRequest, PostureDataResponse,
+    UserCreateRequest, UserResponse, PostureDataResponse,
     ConsentUpdateRequest, DSARRequestCreate, DSARRequestResponse, AuditLogResponse
 )
 from posture_analyzer import PostureAnalyzer
-from posture_visualizer import PostureVisualizer
 
 # ============================================================================
 # SETUP
@@ -71,8 +68,47 @@ app.add_middleware(
 )
 
 # Posture analysis engine
-analyzer = PostureAnalyzer()
-visualizer = PostureVisualizer()
+analyzer = None
+analyzer_init_error = None
+try:
+    analyzer = PostureAnalyzer()
+except Exception as exc:
+    analyzer_init_error = str(exc)
+    logger.warning("Posture analyzer unavailable at startup: %s", analyzer_init_error)
+
+
+def serialize_model(schema, instance):
+    """Compat helper for Pydantic v1/v2 style model serialization."""
+    if hasattr(schema, "model_validate"):
+        return schema.model_validate(instance)
+    return schema.from_orm(instance)
+
+
+def summarize_analysis(frame: np.ndarray) -> dict:
+    """Normalize analyzer output into API-facing posture metrics."""
+    if analyzer is None:
+        raise RuntimeError(
+            "Posture analyzer is unavailable. MediaPipe legacy pose support is missing in the current Python environment."
+        )
+
+    analysis = analyzer.analyze_posture(frame)
+    angles = analysis.get("angles", {})
+    issues = analysis.get("issues", [])
+    confidence = analysis.get("confidence", 0.0)
+
+    spine_angle = angles.get("head_shoulder_angle")
+    shoulder_symmetry = None
+    if "shoulder_slope" in angles:
+        shoulder_symmetry = max(0.0, 100.0 - min(abs(angles["shoulder_slope"]) * 100.0, 100.0))
+
+    return {
+        "spine_angle": spine_angle,
+        "shoulder_symmetry": shoulder_symmetry,
+        "neck_angle": angles.get("neck_angle"),
+        "alert": not analysis.get("good_posture", True),
+        "issues": issues,
+        "confidence": confidence,
+    }
 
 
 # ============================================================================
@@ -88,9 +124,15 @@ def get_db():
         db.close()
 
 
-async def get_current_user(user_id: str, db: Session = Depends(get_db)) -> User:
+async def get_current_user(
+    x_user_id: Optional[str] = Header(default=None, alias="X-User-Id"),
+    db: Session = Depends(get_db)
+) -> User:
     """Get current user with consent check."""
-    user = db.query(User).filter(User.id == user_id).first()
+    if not x_user_id:
+        raise HTTPException(status_code=401, detail="Missing X-User-Id header")
+
+    user = db.query(User).filter(User.id == x_user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     if user.deleted_at:
@@ -219,7 +261,7 @@ async def register_user(
     # Log consent (EU-05)
     log_consent_change(db, user.id, "given", "posture_tracking", req.consent_version)
     
-    return UserResponse.from_orm(user)
+    return serialize_model(UserResponse, user)
 
 
 @app.get("/api/users/{user_id}", response_model=UserResponse)
@@ -228,7 +270,7 @@ async def get_user(
     user: User = Depends(get_current_user),
 ) -> UserResponse:
     """Get user profile."""
-    return UserResponse.from_orm(user)
+    return serialize_model(UserResponse, user)
 
 
 @app.put("/api/users/{user_id}/consent")
@@ -275,6 +317,10 @@ async def websocket_posture(websocket: WebSocket, user_id: str, db: Session = De
     if not user or not user.consent_given_at:
         await websocket.close(code=4003, reason="Consent required")
         return
+
+    if analyzer is None:
+        await websocket.close(code=1011, reason="Posture analyzer unavailable in current environment")
+        return
     
     await websocket.accept()
     session_id = str(uuid.uuid4())
@@ -290,12 +336,14 @@ async def websocket_posture(websocket: WebSocket, user_id: str, db: Session = De
                 break
             
             # Analyze posture (never store raw frames - EU-01, EU-03)
-            results = analyzer.analyze(frame)
+            results = summarize_analysis(frame)
             posture_data = {
                 "spine_angle": results.get("spine_angle"),
                 "shoulder_symmetry": results.get("shoulder_symmetry"),
                 "neck_angle": results.get("neck_angle"),
                 "alert": results.get("alert", False),
+                "issues": results.get("issues", []),
+                "confidence": results.get("confidence", 0.0),
                 "timestamp": datetime.utcnow().isoformat()
             }
             
@@ -346,8 +394,11 @@ async def analyze_posture(
     
     if frame is None:
         raise HTTPException(status_code=400, detail="Invalid image")
-    
-    results = analyzer.analyze(frame)
+
+    try:
+        results = summarize_analysis(frame)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
     
     # Store aggregated metrics only
     posture = PostureData(
@@ -383,7 +434,7 @@ async def get_posture_history(
     
     log_audit(db, "DATA_ACCESS", "history_retrieved", user.id, resource="posture_history")
     
-    return [PostureDataResponse.from_orm(d) for d in data]
+    return [serialize_model(PostureDataResponse, d) for d in data]
 
 
 # ============================================================================
@@ -416,7 +467,8 @@ async def create_dsar_request(
     
     # TODO: In production, queue background task to fulfill request
     
-    return DSARRequestResponse.from_orm(dsar)
+    db.refresh(dsar)
+    return serialize_model(DSARRequestResponse, dsar)
 
 
 @app.get("/api/dsar/export")
@@ -432,8 +484,6 @@ async def export_user_data(
     # Collect all data
     posture_data = db.query(PostureData).filter(PostureData.user_id == user.id).all()
     consent_logs = db.query(ConsentLog).filter(ConsentLog.user_id == user.id).all()
-    audit_logs = db.query(AuditLog).filter(AuditLog.user_id == user.id).all()
-    
     export = {
         "user": {
             "id": user.id,
@@ -455,7 +505,8 @@ async def export_user_data(
                 "action": c.action
             }
             for c in consent_logs
-        ]
+        ],
+        "audit_log_count": db.query(AuditLog).filter(AuditLog.user_id == user.id).count()
     }
     
     # Create file
@@ -545,7 +596,7 @@ async def get_audit_logs(
         .limit(limit)\
         .all()
     
-    return [AuditLogResponse.from_orm(l) for l in logs]
+    return [serialize_model(AuditLogResponse, l) for l in logs]
 
 
 # ============================================================================
@@ -559,14 +610,20 @@ async def root():
         "status": "running",
         "app": "Posture Monitor Pro API",
         "version": "2.0.0",
-        "compliance": ["GDPR", "CCPA/CPRA", "BIPA", "PIPEDA", "COPPA"]
+        "compliance": ["GDPR", "CCPA/CPRA", "BIPA", "PIPEDA", "COPPA"],
+        "posture_analyzer_available": analyzer is not None,
+        "posture_analyzer_error": analyzer_init_error,
     }
 
 
 @app.get("/health")
 async def health():
     """Health check."""
-    return {"status": "healthy"}
+    return {
+        "status": "healthy" if analyzer is not None else "degraded",
+        "posture_analyzer_available": analyzer is not None,
+        "posture_analyzer_error": analyzer_init_error,
+    }
 
 
 if __name__ == "__main__":

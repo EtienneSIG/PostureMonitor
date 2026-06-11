@@ -59,7 +59,7 @@ const verifyAge = () => {
 
   if (age >= 13) {
     ageError.value = ''
-    emit('verified')
+    emit('verified', { dateOfBirth: dateOfBirth.value })
   } else {
     ageError.value = 'You must be at least 13 years old to use this service'
   }
