@@ -1,5 +1,31 @@
+# Core posture analysis
 opencv-python>=4.8.0
 mediapipe>=0.10.13
 numpy>=1.24.0
 pygame>=2.5.0
 pillow>=10.0.0
+
+# Backend (FastAPI) - EU-01 to NA-07 compliance
+fastapi>=0.100.0
+uvicorn>=0.23.0
+sqlalchemy>=2.0.0
+pydantic>=2.0.0
+python-multipart>=0.0.6
+
+# Database
+sqlalchemy>=2.0.0
+alembic>=1.12.0  # Database migrations
+
+# Security & Compliance
+python-jose>=3.3.0
+cryptography>=41.0.0
+passlib>=1.7.4
+bcrypt>=4.1.0
+
+# Monitoring & Logging
+python-json-logger>=2.0.0
+prometheus-client>=0.18.0
+
+# Utilities
+python-dotenv>=1.0.0
+aiofiles>=23.0.0
