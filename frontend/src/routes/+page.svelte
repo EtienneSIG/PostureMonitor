@@ -23,18 +23,18 @@
     send({ type: 'calibrate' });
   }
 
-  const wsColor = $derived(() => ({
+  const wsColor = $derived(({
     connecting: 'bg-yellow-500',
     open:       'bg-green-500',
     closed:     'bg-slate-500',
     error:      'bg-red-500'
-  }[wsState.current] ?? 'bg-slate-500'));
+  } as const)[wsState.current] ?? 'bg-slate-500');
 
-  const goodPct = $derived(() => {
-    if (history.length === 0) return 0;
-    const good = history.filter(e => e.status === 'good').length;
-    return Math.round((good / history.length) * 100);
-  });
+  const goodPct = $derived(
+    history.length === 0
+      ? 0
+      : Math.round((history.filter(e => e.status === 'good').length / history.length) * 100)
+  );
 </script>
 
 <!-- Header -->
@@ -46,7 +46,7 @@
     </div>
     <div class="flex items-center gap-3">
       <!-- WS status dot -->
-      <span title="Connection: {wsState.current}" class={`w-2 h-2 rounded-full ${wsColor()} animate-pulse`}></span>
+      <span title="Connection: {wsState.current}" class={`w-2 h-2 rounded-full ${wsColor} animate-pulse`}></span>
       <button
         onclick={() => showSettings = true}
         class="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition-all"
@@ -76,7 +76,7 @@
   <div class="grid grid-cols-2 gap-4">
     <!-- Good posture % -->
     <div class="bg-slate-900/60 border border-slate-800 rounded-2xl p-5 text-center">
-      <p class="text-3xl font-bold text-green-400">{goodPct()}%</p>
+      <p class="text-3xl font-bold text-green-400">{goodPct}%</p>
       <p class="text-slate-500 text-xs mt-1">Good posture<br/>this session</p>
     </div>
 

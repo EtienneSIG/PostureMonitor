@@ -96,13 +96,13 @@ class PostureTray:
         self._icon.run()
 
     def _build_menu(self):
-        toggle_label = "⏸ Pause Monitoring" if self._monitoring else "▶ Start Monitoring"
+        toggle_label = "Pause Monitoring" if self._monitoring else "Start Monitoring"
         return pystray.Menu(
-            Item("📊 Open Dashboard", self._open_dashboard, default=True),
+            Item("Open Dashboard", self._open_dashboard, default=True),
             Item(toggle_label, self._toggle_monitoring),
-            Item("📐 Calibrate", lambda icon, item: self._on_calibrate()),
+            Item("Calibrate", lambda icon, item: self._on_calibrate()),
             pystray.Menu.SEPARATOR,
-            Item("❌ Quit", self._quit),
+            Item("Quit", self._quit),
         )
 
     def _rebuild_menu(self) -> None:

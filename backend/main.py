@@ -62,7 +62,6 @@ monitoring_active = False
 # broadcast queue — camera thread pushes; WS handler fans out to all clients
 broadcast_queue: asyncio.Queue = asyncio.Queue(maxsize=5)
 connected_clients: Set[WebSocket] = set()
-_loop: asyncio.AbstractEventLoop | None = None
 
 app_settings: dict = {
     "sensitivity": "low",
@@ -76,14 +75,14 @@ app_settings: dict = {
 
 @app.on_event("startup")
 async def _startup() -> None:
-    global _loop, monitoring_active
-    _loop = asyncio.get_running_loop()
-    camera.set_event_loop(_loop, broadcast_queue)
-    # Start monitoring immediately
+    global monitoring_active
+    loop = asyncio.get_running_loop()
+    camera.set_event_loop(loop, broadcast_queue)
+    # Start monitoring immediately so the user sees results as soon as the
+    # dashboard opens.  This can be toggled off via the UI or tray icon.
     monitoring_active = True
     camera.start()
-    # Fan-out task
-    _loop.create_task(_broadcaster())
+    loop.create_task(_broadcaster())
     log.info("PostureMonitor backend started — %s", DASHBOARD_URL)
 
 

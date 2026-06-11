@@ -8,8 +8,34 @@ import {
   monitoring,
   settings,
   wsState,
-  pushHistory
+  pushHistory,
+  type PostureStatus,
+  type AppSettings
 } from './stores.svelte.js';
+
+// ── server → client message types ────────────────────────────────────────────
+
+interface PostureUpdateMsg {
+  type: 'posture_update';
+  status: PostureStatus;
+  confidence?: number;
+  issues?: string[];
+  message?: string;
+  timestamp?: number;
+}
+
+interface StateMsg {
+  type: 'state';
+  monitoring?: boolean;
+  settings?: Partial<AppSettings>;
+}
+
+interface SettingsAckMsg {
+  type: 'settings_ack';
+  settings?: Partial<AppSettings>;
+}
+
+type ServerMessage = PostureUpdateMsg | StateMsg | SettingsAckMsg;
 
 let ws: WebSocket | null = null;
 let retryTimeout: ReturnType<typeof setTimeout> | null = null;
@@ -32,7 +58,7 @@ export function connect() {
 
   ws.onmessage = (ev) => {
     try {
-      const msg = JSON.parse(ev.data as string);
+      const msg = JSON.parse(ev.data as string) as ServerMessage;
       handleMessage(msg);
     } catch {
       // ignore malformed frames
@@ -67,8 +93,7 @@ function scheduleRetry() {
   retryTimeout = setTimeout(connect, RETRY_DELAY_MS);
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function handleMessage(msg: any) {
+function handleMessage(msg: ServerMessage) {
   switch (msg.type) {
     case 'posture_update': {
       const entry = {

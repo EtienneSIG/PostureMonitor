@@ -17,7 +17,7 @@ class PostureAnalyzer:
     - Spine alignment
     """
     
-    def __init__(self):
+    def __init__(self, alerter: Optional["PostureAlerter"] = None):
         self.mp_pose = mp.solutions.pose
         self.mp_drawing = mp.solutions.drawing_utils
         self.pose = self.mp_pose.Pose(
@@ -100,8 +100,8 @@ class PostureAnalyzer:
         self.posture_history = []
         self.history_length = 20  # Longer history for much smoother detection (was 15)
         
-        # Audio alerts system
-        self.alerter = PostureAlerter()
+        # Alert system — use the injected alerter or create a default one
+        self.alerter: PostureAlerter = alerter if alerter is not None else PostureAlerter()
     
     def set_translator_language(self, language: str):
         """Synchronize translator language with main interface."""

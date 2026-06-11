@@ -43,9 +43,8 @@ class CameraManager:
     """
 
     def __init__(self, alerter: PostureAlerter) -> None:
-        self._analyzer = PostureAnalyzer()
-        # Use the shared alerter so there is exactly one notification source
-        self._analyzer.alerter = alerter
+        self._analyzer = PostureAnalyzer(alerter=alerter)
+        # alerter is shared — PostureAnalyzer owns it via the constructor arg
 
         self._running = False
         self._thread: Optional[threading.Thread] = None
