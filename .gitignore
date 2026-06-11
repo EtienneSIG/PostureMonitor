@@ -8,3 +8,10 @@ __pycache__/
 .venv/
 venv/
 .venv311/
+
+# PyInstaller / desktop build artifacts
+build/
+dist/
+*.manifest
+frontend/dist/
+

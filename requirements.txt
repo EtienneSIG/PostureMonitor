@@ -29,3 +29,6 @@ prometheus-client>=0.18.0
 # Utilities
 python-dotenv>=1.0.0
 aiofiles>=23.0.0
+
+# Desktop packaging (build-only, to produce the .exe via build_exe.ps1)
+pyinstaller>=6.0.0

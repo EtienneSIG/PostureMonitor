@@ -12,7 +12,20 @@ Use of this application is the sole responsibility of the user, who is free to u
 
 ## Quick start
 
-### Recommended modern application
+### For non-technical users (Windows executable)
+
+No Python or Node.js installation required. Just run the app:
+
+1. Download/copy the `PostureMonitorPro` folder (the build output).
+2. Double-click `PostureMonitorPro.exe` inside it.
+3. A console window opens and your default browser launches automatically on the app.
+4. To stop the app, simply close the console window.
+
+On first launch, a small pose model (~9 MB) is downloaded automatically. Your
+data (local database and model cache) is stored privately under
+`%LOCALAPPDATA%\PostureMonitorPro`.
+
+### Recommended modern application (developers)
 ```bash
 python launch.py
 ```
@@ -25,11 +38,26 @@ python launch.py --backend-only
 python launch.py --frontend-only
 ```
 
+## Building the Windows executable
+
+To produce the standalone `.exe` for non-technical users:
+
+```powershell
+./build_exe.ps1
+```
+
+This builds the frontend, then bundles everything (backend, frontend, and the
+MediaPipe engine) into `dist/PostureMonitorPro/`. Share that entire folder.
+The build relies on:
+- `desktop_app.py`: single-process entry point (starts the server + opens the browser)
+- `PostureMonitorPro.spec`: PyInstaller bundling configuration
+
 ## Architecture
 
 - `frontend/`: modern Vue 3 + Vite interface
 - `backend/`: local FastAPI + WebSocket API
-- `launch.py`: single launcher for backend + frontend
+- `launch.py`: single launcher for backend + frontend (development)
+- `desktop_app.py`: packaged desktop entry point (the `.exe`)
 - `reglementation.md`: compliance tracking for Europe / North America
 
 ## Key features

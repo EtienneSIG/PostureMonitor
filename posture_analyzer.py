@@ -2,6 +2,7 @@ import cv2
 import mediapipe as mp
 import numpy as np
 import math
+import os
 import time
 import urllib.request
 from pathlib import Path
@@ -15,9 +16,20 @@ POSE_TASK_MODEL_URL = (
     "https://storage.googleapis.com/mediapipe-models/pose_landmarker/"
     "pose_landmarker_full/float16/1/pose_landmarker_full.task"
 )
-POSE_TASK_MODEL_PATH = (
-    Path(__file__).resolve().parent / ".cache" / "models" / "pose_landmarker_full.task"
-)
+
+
+def _resolve_model_path() -> Path:
+    """Resolve a writable location for the downloaded pose model.
+
+    Honors POSTURE_MODEL_DIR (set by the packaged desktop app) so the model is
+    cached in a user-writable directory instead of next to a read-only bundle.
+    """
+    env_dir = os.getenv("POSTURE_MODEL_DIR")
+    base = Path(env_dir) if env_dir else (Path(__file__).resolve().parent / ".cache" / "models")
+    return base / "pose_landmarker_full.task"
+
+
+POSE_TASK_MODEL_PATH = _resolve_model_path()
 
 
 class _LandmarkListAdapter:

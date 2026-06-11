@@ -15,10 +15,14 @@ Run: uvicorn backend.app:app --host 127.0.0.1 --port 8000 --reload
 from fastapi import FastAPI, Depends, HTTPException, UploadFile, File, WebSocket, Header
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
+from fastapi.staticfiles import StaticFiles
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, Session
 from datetime import datetime, timedelta
 import logging
+import os
+import sys
+from pathlib import Path
 from typing import List, Optional
 import uuid
 import cv2
@@ -26,6 +30,29 @@ import numpy as np
 import asyncio
 import json as json_lib
 import math
+
+
+def _resolve_frontend_dist() -> Optional[Path]:
+    """Locate the built Vue frontend (frontend/dist) for production / desktop use.
+
+    Returns None in dev mode where the Vite dev server serves the UI instead.
+    """
+    candidates = []
+    env_dir = os.getenv("FRONTEND_DIST")
+    if env_dir:
+        candidates.append(Path(env_dir))
+    # PyInstaller bundle: data files are unpacked under sys._MEIPASS
+    if hasattr(sys, "_MEIPASS"):
+        candidates.append(Path(sys._MEIPASS) / "frontend_dist")
+    # Source layout
+    candidates.append(Path(__file__).resolve().parent.parent / "frontend" / "dist")
+    for candidate in candidates:
+        if candidate and (candidate / "index.html").is_file():
+            return candidate
+    return None
+
+
+FRONTEND_DIST = _resolve_frontend_dist()
 
 # Import local modules
 from backend.config import (
@@ -968,7 +995,22 @@ async def get_audit_logs(
 
 @app.get("/")
 async def root():
-    """API status."""
+    """Serve the built frontend (desktop/production) or API status (dev)."""
+    if FRONTEND_DIST is not None:
+        return FileResponse(str(FRONTEND_DIST / "index.html"))
+    return {
+        "status": "running",
+        "app": "Posture Monitor Pro API",
+        "version": "2.0.0",
+        "compliance": ["GDPR", "CCPA/CPRA", "BIPA", "PIPEDA", "COPPA"],
+        "posture_analyzer_available": analyzer is not None,
+        "posture_analyzer_error": analyzer_init_error,
+    }
+
+
+@app.get("/api")
+async def api_status():
+    """API status (always available as JSON)."""
     return {
         "status": "running",
         "app": "Posture Monitor Pro API",
@@ -987,6 +1029,24 @@ async def health():
         "posture_analyzer_available": analyzer is not None,
         "posture_analyzer_error": analyzer_init_error,
     }
+
+
+# ============================================================================
+# STATIC FRONTEND (mounted last so API routes take precedence)
+# ============================================================================
+
+if FRONTEND_DIST is not None:
+    _assets_dir = FRONTEND_DIST / "assets"
+    if _assets_dir.is_dir():
+        app.mount("/assets", StaticFiles(directory=str(_assets_dir)), name="assets")
+
+    @app.get("/{full_path:path}")
+    async def spa_fallback(full_path: str):
+        """Serve static files when present, otherwise the SPA entry point."""
+        candidate = FRONTEND_DIST / full_path
+        if full_path and candidate.is_file():
+            return FileResponse(str(candidate))
+        return FileResponse(str(FRONTEND_DIST / "index.html"))
 
 
 if __name__ == "__main__":
