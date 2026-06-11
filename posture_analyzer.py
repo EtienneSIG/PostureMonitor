@@ -2,9 +2,32 @@ import cv2
 import mediapipe as mp
 import numpy as np
 import math
+import time
+import urllib.request
+from pathlib import Path
+from types import SimpleNamespace
 from typing import Dict, List, Tuple, Optional
 from posture_alerts import PostureAlerter
 from posture_translator import PostureTranslator
+
+
+POSE_TASK_MODEL_URL = (
+    "https://storage.googleapis.com/mediapipe-models/pose_landmarker/"
+    "pose_landmarker_full/float16/1/pose_landmarker_full.task"
+)
+POSE_TASK_MODEL_PATH = (
+    Path(__file__).resolve().parent / ".cache" / "models" / "pose_landmarker_full.task"
+)
+
+
+class _LandmarkListAdapter:
+    def __init__(self, landmarks):
+        self.landmark = landmarks
+
+
+class _PoseResultAdapter:
+    def __init__(self, landmarks):
+        self.pose_landmarks = _LandmarkListAdapter(landmarks) if landmarks else None
 
 
 class PostureAnalyzer:
@@ -18,17 +41,11 @@ class PostureAnalyzer:
     """
     
     def __init__(self):
-        self.mp_pose = mp.solutions.pose
-        self.mp_drawing = mp.solutions.drawing_utils
-        self.pose = self.mp_pose.Pose(
-            static_image_mode=False,
-            model_complexity=1,
-            smooth_landmarks=True,
-            enable_segmentation=False,
-            smooth_segmentation=True,
-            min_detection_confidence=0.7,
-            min_tracking_confidence=0.5
-        )
+        self._pose_backend = None
+        self._last_video_timestamp_ms = 0
+        self.mp_pose = None
+        self.mp_drawing = None
+        self.pose = self._create_pose_backend()
         
         # Translation system
         self.translator = PostureTranslator()
@@ -102,6 +119,68 @@ class PostureAnalyzer:
         
         # Audio alerts system
         self.alerter = PostureAlerter()
+
+    def _create_pose_backend(self):
+        if hasattr(mp, 'solutions'):
+            self._pose_backend = 'solutions'
+            self.mp_pose = mp.solutions.pose
+            self.mp_drawing = mp.solutions.drawing_utils
+            return self.mp_pose.Pose(
+                static_image_mode=False,
+                model_complexity=1,
+                smooth_landmarks=True,
+                enable_segmentation=False,
+                smooth_segmentation=True,
+                min_detection_confidence=0.7,
+                min_tracking_confidence=0.5
+            )
+
+        self._pose_backend = 'tasks'
+        from mediapipe.tasks.python import vision
+        from mediapipe.tasks.python.core.base_options import BaseOptions
+        from mediapipe.tasks.python.vision import pose_landmarker
+
+        model_path = self._ensure_pose_task_model()
+        self.mp_pose = SimpleNamespace(
+            POSE_CONNECTIONS=pose_landmarker.PoseLandmarksConnections.POSE_LANDMARKS
+        )
+        self.mp_drawing = None
+
+        options = pose_landmarker.PoseLandmarkerOptions(
+            base_options=BaseOptions(model_asset_path=str(model_path)),
+            running_mode=vision.RunningMode.VIDEO,
+            num_poses=1,
+            min_pose_detection_confidence=0.7,
+            min_pose_presence_confidence=0.5,
+            min_tracking_confidence=0.5,
+            output_segmentation_masks=False,
+        )
+        return pose_landmarker.PoseLandmarker.create_from_options(options)
+
+    def _ensure_pose_task_model(self) -> Path:
+        if POSE_TASK_MODEL_PATH.exists():
+            return POSE_TASK_MODEL_PATH
+
+        POSE_TASK_MODEL_PATH.parent.mkdir(parents=True, exist_ok=True)
+        urllib.request.urlretrieve(POSE_TASK_MODEL_URL, POSE_TASK_MODEL_PATH)
+        return POSE_TASK_MODEL_PATH
+
+    def _next_video_timestamp_ms(self) -> int:
+        current_ms = int(time.monotonic() * 1000)
+        self._last_video_timestamp_ms = max(self._last_video_timestamp_ms + 1, current_ms)
+        return self._last_video_timestamp_ms
+
+    def _process_pose(self, rgb_frame: np.ndarray):
+        if self._pose_backend == 'solutions':
+            return self.pose.process(rgb_frame)
+
+        mp_image = mp.Image(
+            image_format=mp.ImageFormat.SRGB,
+            data=np.ascontiguousarray(rgb_frame)
+        )
+        result = self.pose.detect_for_video(mp_image, self._next_video_timestamp_ms())
+        landmarks = result.pose_landmarks[0] if result.pose_landmarks else None
+        return _PoseResultAdapter(landmarks)
     
     def set_translator_language(self, language: str):
         """Synchronize translator language with main interface."""
@@ -206,7 +285,7 @@ class PostureAnalyzer:
         height, width = frame.shape[:2]
         rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         
-        results = self.pose.process(rgb_frame)
+        results = self._process_pose(rgb_frame)
         
         analysis_result = {
             'landmarks': results.pose_landmarks,
@@ -624,7 +703,7 @@ if __name__ == "__main__":
             result = analyzer.analyze_posture(frame)
             
             # Draw landmarks if detected
-            if result['landmarks']:
+            if result['landmarks'] and analyzer.mp_drawing:
                 analyzer.mp_drawing.draw_landmarks(
                     frame, result['landmarks'], analyzer.mp_pose.POSE_CONNECTIONS)
             

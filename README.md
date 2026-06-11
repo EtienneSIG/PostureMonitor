@@ -60,7 +60,15 @@ python posture_monitor_gui.py
 pip install -r requirements.txt
 ```
 
-Python 3.11 est recommande pour le monitoring complet. Sous Python 3.12, l interface moderne et l API demarrent, mais l analyse de posture peut passer en mode degrade selon la version de MediaPipe disponible.
+Python 3.12 est maintenant supporte via le backend MediaPipe Tasks moderne.
+Python 3.11 reste le chemin le plus stable pour rester proche du backend historique et des anciennes integrations.
+
+### Setup stable Python 3.11
+```powershell
+./setup_py311.ps1
+```
+
+Ce script prepare un environnement `.venv311` si Python 3.11 est installe localement.
 
 ### Node.js
 Node.js 18+ est requis pour le frontend.
@@ -72,7 +80,8 @@ Au premier lancement, `launch.py` installe automatiquement les dependances front
 - le traitement reste local par defaut
 - les frames video brutes ne doivent pas etre stockees durablement
 - le README historique de la GUI desktop a ete remplace par cette vue d ensemble du repo
-- l endpoint `/health` indique si l analyseur de posture est disponible ou en mode degrade
+- sous Python 3.12, le modele `pose_landmarker_full.task` est telecharge automatiquement dans `.cache/` au premier demarrage
+- l endpoint `/health` indique si l analyseur de posture est disponible
 
 Voir aussi `backend/README.md`, `frontend/README.md` et `reglementation.md`.
 

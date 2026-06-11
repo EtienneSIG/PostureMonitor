@@ -3,8 +3,8 @@
 FastAPI-based backend for real-time posture monitoring with GDPR/CCPA/BIPA compliance.
 
 Note environnement:
-- Python 3.11 est recommande pour l analyse de posture en temps reel avec l analyseur historique base sur MediaPipe.
-- Sous Python 3.12, le backend demarre en mode degrade si l API `mediapipe.solutions` n est pas disponible. Les endpoints de privacy, consentement et DSAR restent utilisables.
+- Python 3.12 est supporte via un fallback MediaPipe Tasks (`PoseLandmarker`) avec telechargement automatique du modele `.task`.
+- Python 3.11 reste recommande si vous voulez rester au plus proche du pipeline historique base sur `mediapipe.solutions`.
 
 ## Features
 
@@ -46,7 +46,7 @@ Authenticated API calls use the `X-User-Id` header after registration.
 - `POST /api/posture/analyze` - Analyze single image
 - `GET /api/posture/history` - Get user's posture history
 
-If posture analysis is unavailable in the current environment, monitoring endpoints return an explicit `503` or WebSocket close reason instead of crashing the application.
+On Python 3.12, posture analysis runs through MediaPipe Tasks using a local `pose_landmarker_full.task` model cached under `.cache/`.
 
 ### DSAR (Data Subject Access Requests)
 - `POST /api/dsar/request` - Create DSAR request
