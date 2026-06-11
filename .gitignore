@@ -15,3 +15,7 @@ dist/
 *.manifest
 frontend/dist/
 
+# Sensitive user secrets
+recovery code
+recovery_code*
+
