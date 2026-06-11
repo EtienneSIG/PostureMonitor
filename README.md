@@ -2,6 +2,14 @@
 
 Application locale de suivi de posture avec interface moderne et exigences de conformite integrees.
 
+## ⚠️ Avertissement
+
+Posture Monitor Pro **n'est pas un dispositif medical** et ne fournit aucun diagnostic, traitement ou avis medical. Il s'agit d'un simple outil d'aide destine a sensibiliser l'utilisateur a sa posture.
+
+Les mesures et alertes affichees sont indicatives et peuvent etre inexactes. Elles ne remplacent en aucun cas l'avis d'un professionnel de sante qualifie. En cas de douleur, de gene ou de probleme de sante, consultez un medecin ou un professionnel de sante.
+
+L'utilisation de cette application releve de la seule responsabilite de l'utilisateur, qui est libre de s'en servir ou non. Les auteurs declinent toute responsabilite quant aux decisions prises ou aux consequences resultant de son utilisation.
+
 ## Demarrage rapide
 
 ### Application moderne recommandee
