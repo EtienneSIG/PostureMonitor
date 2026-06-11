@@ -1,0 +1,100 @@
+{
+  "folders": [
+    {
+      "name": "PostureMonitor (root)",
+      "path": "."
+    },
+    {
+      "name": "Backend (Python / FastAPI)",
+      "path": "./backend"
+    },
+    {
+      "name": "Frontend (SvelteKit)",
+      "path": "./frontend"
+    }
+  ],
+  "settings": {
+    "editor.formatOnSave": true,
+    "editor.defaultFormatter": "esbenp.prettier-vscode",
+    "[python]": {
+      "editor.defaultFormatter": "ms-python.black-formatter",
+      "editor.formatOnSave": true
+    },
+    "[svelte]": {
+      "editor.defaultFormatter": "svelte.svelte-vscode"
+    },
+    "python.defaultInterpreterPath": "${workspaceFolder:Backend (Python / FastAPI)}/.venv/bin/python",
+    "svelte.enable-ts-plugin": true,
+    "typescript.preferences.importModuleSpecifierEnding": "js",
+    "files.exclude": {
+      "**/node_modules": true,
+      "**/__pycache__": true,
+      "**/.svelte-kit": true,
+      "**/build": true
+    }
+  },
+  "extensions": {
+    "recommendations": [
+      "svelte.svelte-vscode",
+      "bradlc.vscode-tailwindcss",
+      "esbenp.prettier-vscode",
+      "ms-python.python",
+      "ms-python.black-formatter",
+      "ms-python.vscode-pylance"
+    ]
+  },
+  "tasks": {
+    "version": "2.0.0",
+    "tasks": [
+      {
+        "label": "🚀 Run PostureMonitor",
+        "type": "shell",
+        "command": "python backend/main.py",
+        "group": { "kind": "build", "isDefault": true },
+        "presentation": { "reveal": "always", "panel": "new" },
+        "problemMatcher": []
+      },
+      {
+        "label": "⚡ Frontend dev server",
+        "type": "shell",
+        "command": "yarn dev",
+        "options": { "cwd": "${workspaceFolder:Frontend (SvelteKit)}" },
+        "group": "build",
+        "presentation": { "reveal": "always", "panel": "new" },
+        "problemMatcher": []
+      },
+      {
+        "label": "🔨 Build frontend",
+        "type": "shell",
+        "command": "yarn build",
+        "options": { "cwd": "${workspaceFolder:Frontend (SvelteKit)}" },
+        "group": "build",
+        "presentation": { "reveal": "always", "panel": "new" },
+        "problemMatcher": []
+      },
+      {
+        "label": "🐍 Install Python deps",
+        "type": "shell",
+        "command": "pip install -r requirements.txt",
+        "options": { "cwd": "${workspaceFolder:Backend (Python / FastAPI)}" },
+        "group": "build",
+        "presentation": { "reveal": "always", "panel": "new" },
+        "problemMatcher": []
+      }
+    ]
+  },
+  "launch": {
+    "version": "0.2.0",
+    "configurations": [
+      {
+        "name": "🐍 Debug Backend",
+        "type": "debugpy",
+        "request": "launch",
+        "program": "${workspaceFolder:Backend (Python / FastAPI)}/main.py",
+        "cwd": "${workspaceFolder:Backend (Python / FastAPI)}",
+        "console": "integratedTerminal",
+        "justMyCode": false
+      }
+    ]
+  }
+}

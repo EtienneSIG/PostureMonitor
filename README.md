@@ -1,243 +1,152 @@
-# 🖥️ Posture Monitor Pro - GUI Edition
+# 🧍 PostureMonitor v2
 
-## 🚀 Two Ways to Run Your Posture Monitor
+A **lightweight, modern posture-monitoring app** that runs quietly in the background while you work or attend meetings, and alerts you via desktop notifications when your posture needs correction.
 
-### **🖥️ Option 1: Modern GUI Version (Recommended)**
+Built with **SvelteKit + Tailwind CSS** (frontend) and **Python FastAPI** (backend), with **MediaPipe** for real-time pose detection.
+
+---
+
+## ✨ What's new in v2
+
+| Feature | v1 (Tkinter/OpenCV window) | v2 (SvelteKit + FastAPI) |
+|---------|----------------------------|--------------------------|
+| Interface | Desktop OpenCV window | Modern web dashboard |
+| Background running | ❌ Window must stay open | ✅ System-tray icon |
+| Notifications | Pygame audio beeps | OS desktop notifications |
+| Settings | Keyboard shortcuts | Click-to-configure UI |
+| Architecture | Monolithic Python | FastAPI + SvelteKit |
+| Bundle size | Heavy (pygame, tkinter) | Lean (no GUI frameworks) |
+
+---
+
+## 🚀 Quick start
+
+### Prerequisites
+- **Python 3.10+** and **pip**
+- **Node.js 18+** and **yarn** (`npm install -g yarn`)
+- A webcam
+
+### macOS / Linux
 ```bash
-python posture_monitor_gui.py
+./start.sh
 ```
 
-**Features:**
-- ✅ **Click buttons** instead of remembering keys
-- ✅ **Visual controls** for all settings
-- ✅ **Clean exit** - just close window
-- ✅ **Professional interface**
-- ✅ **Real-time status panel**
-
-### **🖼️ Option 2: Original OpenCV Version**
-```bash
-python posture_monitor.py
+### Windows
+```bat
+start.bat
 ```
 
-**Features:**
-- ✅ **Keyboard controls** (Space, L, I, M, G, H, etc.)
-- ✅ **Click X buttons** to close info boxes
-- ✅ **Resizable camera window**
-- ✅ **Clean exit** - press ESC
-- ✅ **Minimal interface**
+Both scripts will:
+1. Build the SvelteKit frontend (only on first run or when files change)
+2. Install Python dependencies if missing
+3. Launch the FastAPI backend at `http://127.0.0.1:8000`
+4. Open your browser automatically
+5. Add a system-tray icon for background control
 
 ---
 
-## 🖥️ GUI Interface Guide
+## 🛠️ Development setup (hot-reload)
 
-### **📋 Main Layout**
+Open the **VS Code workspace** (`PostureMonitor.code-workspace`) then run two tasks in parallel:
 
-The GUI is organized into **three main panels**:
+**Terminal 1 — Backend**
+```bash
+cd backend
+pip install -r requirements.txt
+python main.py
+```
 
-#### **🎛️ Left Panel: Controls**
-- **Monitoring Control**
-  - 🟢 **Monitoring ON/OFF** button
-  - 📐 **Calibrate Posture** button
+**Terminal 2 — Frontend dev server** (hot-reload on save)
+```bash
+cd frontend
+yarn install
+yarn dev          # proxies /api and /ws to port 8000
+```
 
-- **Language Control**
-  - 🇺🇸 **English** / 🇫🇷 **Français** toggle button
-
-- **Sensitivity Settings**
-  - ◉ **Low** (less sensitive)
-  - ◉ **Medium** (balanced - recommended)
-  - ◉ **High** (very sensitive)
-
-- **Interface Elements**
-  - ☑️ **Show Status Info** 
-  - ☑️ **Show Measurements**
-  - ☑️ **Show Guidelines** 
-  - ☑️ **Show Controls Help**
-
-- **Quick Actions**
-  - 🔄 **Reset All Settings**
-  - 📖 **Show Help**
-  - 🚪 **Exit Application**
-
-#### **📷 Center Panel: Camera View**
-- **Live camera feed** with posture analysis overlays
-- **Camera controls**:
-  - 📷 **Start/Stop Camera** button
-  - 📸 **Save Screenshot** button
-
-#### **📊 Right Panel: Status Information**
-- **Current Status** display (Good/Fair/Poor Posture)
-- **Confidence** level
-- **Current Settings** summary
-- **Posture Issues** scrollable list
+Open `http://localhost:5173` for the hot-reloading UI.
 
 ---
 
-## 🎯 Key Improvements
+## 📦 Project structure
 
-### **🖱️ Mouse-Friendly Interface**
-| **Old Way (Keyboard)** | **New Way (GUI)** |
-|------------------------|-------------------|
-| Press 'Space' | Click "🟢 Monitoring ON/OFF" |
-| Press 'L' | Click "🇺🇸 English" / "🇫🇷 Français" |
-| Press 'S' repeatedly | Select ◉ Low/Medium/High |
-| Press 'C' | Click "📐 Calibrate Posture" |
-| Press 'I', 'M', 'G', 'H' | Check/uncheck ☑️ boxes |
-| Press 'ESC' | Click "🚪 Exit Application" |
-| Remember all keys | **Just point and click!** |
-
-### **🔧 Professional Features**
-
-#### **Real-Time Status Panel**
-- **Live posture status** with color coding:
-  - 🟢 **Green**: Good posture
-  - 🟠 **Orange**: Fair posture  
-  - 🔴 **Red**: Poor posture
-- **Confidence scores** for accuracy tracking
-- **Scrollable issues list** with detailed feedback
-
-#### **Smart Camera Management**
-- **Threaded camera processing** - no GUI freezing
-- **Automatic error handling** - graceful camera failures
-- **Screenshot capability** - save your posture progress
-- **Resizable camera view** - fits any window size
-
-#### **Clean Resource Management**
-- **Proper thread termination** 
-- **Camera resource cleanup**
-- **Memory leak prevention**
-- **Professional application lifecycle**
-
----
-
-## 🎮 How to Use the GUI
-
-### **🚀 Getting Started**
-1. **Run the GUI**: `python posture_monitor_gui.py`
-2. **Window opens** with professional interface
-3. **Camera starts automatically** (if available)
-4. **Click "📐 Calibrate Posture"** when sitting correctly
-5. **Monitor your posture** in real-time!
-
-### **🎛️ Customizing Your Experience**
-
-#### **For Learning Mode:**
-- ✅ Check **all interface elements**
-- 🇫🇷 **Switch to French** for language practice
-- 📊 Keep **sensitivity on Medium**
-- 📖 Click **Show Help** for guidance
-
-#### **For Work Mode:**
-- ✅ **Uncheck Guidelines** and **Controls Help**
-- ✅ Keep **Status Info** and **Measurements**
-- 🔧 **Adjust sensitivity** to Low for fewer interruptions
-- 📷 **Position camera** unobtrusively
-
-#### **For Minimal Mode:**
-- ✅ **Uncheck all interface elements** except Status
-- 📏 **Resize window** to small corner size
-- 🔇 **Turn off sound** (if desired)
-- 🎯 **Focus on work** with minimal distraction
-
-### **🌍 Language Switching**
-- **Click language button** to toggle English ⇄ French
-- **All text updates instantly** - status, issues, interface
-- **Perfect for bilingual users** or language learning
-- **No restart required** - seamless switching
-
-### **🚪 Exiting Cleanly**
-- **Click "🚪 Exit Application"** button, OR
-- **Close window** with X button, OR  
-- **Use keyboard**: Alt+F4
-- **All resources cleaned up properly**
-- **Terminal remains active** for next commands
+```
+PostureMonitor/
+├── backend/
+│   ├── main.py              # FastAPI server + system-tray entry point
+│   ├── camera.py            # Camera capture & MediaPipe analysis thread
+│   ├── tray.py              # pystray system-tray icon
+│   ├── posture_analyzer.py  # Core pose analysis (MediaPipe)
+│   ├── posture_alerts.py    # OS desktop notifications (plyer)
+│   ├── posture_translator.py# EN / FR translations
+│   ├── requirements.txt
+│   └── static/              # Built SvelteKit output (git-ignored)
+├── frontend/
+│   ├── src/
+│   │   ├── routes/
+│   │   │   ├── +layout.svelte
+│   │   │   ├── +layout.ts   # prerender = true, ssr = false
+│   │   │   └── +page.svelte # Main dashboard
+│   │   └── lib/
+│   │       ├── stores.svelte.ts  # Reactive state (Svelte 5 runes)
+│   │       ├── websocket.ts      # Auto-reconnecting WS client
+│   │       └── components/
+│   │           ├── StatusCard.svelte
+│   │           ├── HistoryBar.svelte
+│   │           ├── SettingsPanel.svelte
+│   │           └── VideoFeed.svelte
+│   ├── vite.config.ts
+│   └── package.json
+├── PostureMonitor.code-workspace
+├── start.sh / start.bat
+└── .gitignore
+```
 
 ---
 
-## 🔧 Technical Advantages
+## 🖥️ System tray
 
-### **🧵 Multithreaded Architecture**
-- **UI thread**: Responsive interface, never freezes
-- **Camera thread**: Continuous frame processing
-- **Analysis thread**: Real-time posture detection
-- **Clean thread management**: Proper startup/shutdown
+Once running, a coloured dot appears in your system tray:
+- 🟢 Good posture
+- 🟡 Fair posture
+- 🔴 Poor posture
+- ⚫ No detection / monitoring paused
 
-### **🎨 Modern UI Framework**
-- **Tkinter with ttk**: Native OS appearance
-- **Responsive layout**: Adapts to window resizing
-- **Professional styling**: Clean, modern look
-- **Accessibility**: Clear labels, logical tab order
-
-### **🔐 Robust Error Handling**
-- **Camera failures**: Graceful degradation
-- **Missing dependencies**: Clear error messages
-- **Resource conflicts**: Automatic recovery
-- **User errors**: Helpful feedback dialogs
-
-### **💾 Resource Efficiency**
-- **Optimized frame processing**: Minimal CPU usage
-- **Memory management**: Automatic cleanup
-- **Thread pooling**: Efficient resource usage
-- **Clean shutdown**: No zombie processes
+**Right-click** the icon for:
+- 📊 Open Dashboard
+- ▶ / ⏸ Start / Pause monitoring
+- 📐 Calibrate
+- ❌ Quit
 
 ---
 
-## 🎯 Comparison: Original vs GUI
+## ⚙️ REST API
 
-| Feature | **Original OpenCV** | **New GUI Version** |
-|---------|-------------------|-------------------|
-| **Interface** | Camera window only | Professional 3-panel layout |
-| **Controls** | Keyboard shortcuts | Point-and-click buttons |
-| **Exit Method** | ESC key | Close button / window X |
-| **Status Display** | Text overlays | Dedicated status panel |
-| **Settings** | Remember key combinations | Visual controls with labels |
-| **Language Switch** | Press 'L' | Click language button |
-| **Help** | Remember shortcuts | Built-in help dialog |
-| **User Friendliness** | Power user | Everyone |
-| **Resource Cleanup** | Good | Excellent |
-| **Threading** | Single thread | Multi-threaded |
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/status` | Current posture status + settings |
+| POST | `/api/calibrate` | Trigger calibration |
+| POST | `/api/settings` | Update settings (`sensitivity`, `language`, etc.) |
+| GET | `/video_feed` | MJPEG camera stream |
+| WS | `/ws` | Real-time posture events |
 
 ---
 
-## 🏆 Perfect For:
+## 🧩 WebSocket protocol
 
-### **👥 Different User Types**
-- ✅ **Beginners**: Point-and-click interface, no shortcuts to remember
-- ✅ **Power Users**: Still has all advanced features, better organized
-- ✅ **Office Workers**: Professional appearance, clean exit
-- ✅ **International Users**: Easy language switching
-- ✅ **Students**: Built-in help and clear status feedback
+**Server → Client**
+```json
+{ "type": "posture_update", "status": "good|fair|poor|no_detection",
+  "confidence": 87.4, "issues": ["Forward head posture"],
+  "message": "Adjust your neck", "timestamp": 1718000000000 }
+```
 
-### **💼 Different Environments**
-- ✅ **Corporate**: Professional interface, clean shutdown
-- ✅ **Home Office**: Easy setup, family-friendly
-- ✅ **Presentations**: Professional appearance
-- ✅ **Development**: No terminal interference
-- ✅ **Multi-user**: Easy to hand off to others
+**Client → Server**
+```json
+{ "type": "start" | "stop" | "calibrate" | "settings_update" | "get_state" }
+```
 
 ---
 
-## 🎉 **You Now Have Both!**
-
-**Choose the version that fits your needs:**
-
-### **🖥️ For Ease of Use: GUI Version**
-- Modern interface
-- Point-and-click controls  
-- Professional appearance
-- Perfect for daily use
-
-### **🖼️ For Minimalism: Original Version**
-- Keyboard shortcuts
-- Minimal interface
-- Direct camera interaction
-- Perfect for power users
-
-**Both versions:**
-- ✅ **Exit cleanly** without killing terminal
-- ✅ **Support English and French**
-- ✅ **Include all posture features**
-- ✅ **Handle resources properly**
-
-
-Your posture monitoring solution is now **professional-grade** with options for every user! 🌟
+## 🌍 Languages
+Switch between **English** and **Français** in the Settings panel. All posture issue messages and UI labels update instantly.
 
