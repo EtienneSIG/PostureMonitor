@@ -2,6 +2,12 @@
   <div class="consent-gate">
     <div class="consent-card card">
       <h2>🔒 Privacy & Consent Required</h2>
+      <p class="subtitle">
+        {{ selectedLanguage === 'fr'
+          ? 'Avant de commencer, nous avons besoin de votre consentement explicite.'
+          : 'Before you start, we need your explicit consent.'
+        }}
+      </p>
       
       <div class="language-selector">
         <label>Language: </label>
@@ -13,15 +19,22 @@
 
       <div class="policy-section">
         <h3>{{ selectedLanguage === 'fr' ? 'Avis de confidentialité' : 'Privacy Notice' }}</h3>
-        <div class="policy-text">
+        <div v-if="isLoading" class="policy-text muted">
+          {{ selectedLanguage === 'fr' ? 'Chargement des informations de confidentialité...' : 'Loading privacy information...' }}
+        </div>
+        <div v-else class="policy-text">
           {{ privacyPolicy }}
         </div>
       </div>
 
       <div class="consent-section">
         <h3>{{ selectedLanguage === 'fr' ? 'Consentement' : 'Consent' }}</h3>
-        <div class="consent-text">
+        <div class="consent-text" v-if="!isLoading">
           {{ consentText }}
+        </div>
+
+        <div v-if="loadError" class="alert danger">
+          {{ loadError }}
         </div>
         
         <label class="checkbox">
@@ -38,7 +51,7 @@
       <div class="action-buttons">
         <button 
           @click="handleConsent" 
-          :disabled="!userAgreesConsent"
+          :disabled="!userAgreesConsent || isLoading"
           class="primary"
         >
           {{ selectedLanguage === 'fr' ? 'Accepter et continuer' : 'Accept and Continue' }}
@@ -56,7 +69,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, watch, onMounted } from 'vue'
 import { useUserStore } from '../stores/userStore'
 
 const emit = defineEmits(['consented'])
@@ -66,6 +79,28 @@ const userAgreesConsent = ref(false)
 const userAgreesAnalytics = ref(false)
 const privacyPolicy = ref('')
 const consentText = ref('')
+const isLoading = ref(false)
+const loadError = ref('')
+
+const loadPolicyTexts = async () => {
+  isLoading.value = true
+  loadError.value = ''
+  
+  try {
+    const policyRes = await userStore.api.get(`/privacy/policy/${selectedLanguage.value}`)
+    privacyPolicy.value = policyRes.data.policy
+    
+    const consentRes = await userStore.api.get(`/privacy/consent-text/${selectedLanguage.value}`)
+    consentText.value = consentRes.data.consent_text
+  } catch (err) {
+    console.error('Error loading privacy policy:', err)
+    loadError.value = selectedLanguage.value === 'fr'
+      ? 'Impossible de charger les textes de confidentialité. Réessayez dans quelques secondes.'
+      : 'Unable to load privacy texts. Please retry in a few seconds.'
+  } finally {
+    isLoading.value = false
+  }
+}
 
 const handleConsent = async () => {
   if (!userAgreesConsent.value) return
@@ -78,15 +113,11 @@ const handleConsent = async () => {
 }
 
 onMounted(async () => {
-  try {
-    const policyRes = await userStore.api.get(`/privacy/policy/${selectedLanguage.value}`)
-    privacyPolicy.value = policyRes.data.policy
-    
-    const consentRes = await userStore.api.get(`/privacy/consent-text/${selectedLanguage.value}`)
-    consentText.value = consentRes.data.consent_text
-  } catch (err) {
-    console.error('Error loading privacy policy:', err)
-  }
+  await loadPolicyTexts()
+})
+
+watch(selectedLanguage, async () => {
+  await loadPolicyTexts()
 })
 </script>
 
@@ -106,6 +137,12 @@ onMounted(async () => {
   border-radius: 12px;
   max-height: 90vh;
   overflow-y: auto;
+}
+
+.subtitle {
+  margin: 8px 0 16px 0;
+  color: #4a5568;
+  font-size: 14px;
 }
 
 .language-selector {
@@ -141,6 +178,11 @@ onMounted(async () => {
   border-left: 4px solid #667eea;
   white-space: pre-wrap;
   word-wrap: break-word;
+}
+
+.policy-text.muted {
+  color: #718096;
+  font-style: italic;
 }
 
 .consent-text {

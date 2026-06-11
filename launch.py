@@ -20,6 +20,9 @@ import time
 from pathlib import Path
 import signal
 import threading
+import shutil
+import urllib.request
+import json
 
 # Directories
 ROOT_DIR = Path(__file__).parent
@@ -28,6 +31,40 @@ FRONTEND_DIR = ROOT_DIR / "frontend"
 # Process references
 backend_process = None
 frontend_process = None
+
+
+def resolve_npm_command():
+    """Resolve npm reliably on Windows and Unix-like systems."""
+    candidates = ["npm.cmd", "npm", "npm.ps1"] if sys.platform.startswith("win") else ["npm"]
+    for candidate in candidates:
+        resolved = shutil.which(candidate)
+        if resolved:
+            return resolved
+    raise FileNotFoundError("npm was not found on PATH")
+
+
+def wait_for_backend_health(timeout_seconds=20):
+    """Wait until the backend health endpoint responds and return its payload."""
+    deadline = time.time() + timeout_seconds
+    url = "http://127.0.0.1:8000/health"
+    
+    while time.time() < deadline:
+        try:
+            with urllib.request.urlopen(url, timeout=2) as response:
+                return json.loads(response.read().decode("utf-8"))
+        except Exception:
+            time.sleep(0.5)
+    
+    return None
+
+
+def run_forever():
+    """Keep launcher process alive until interrupted."""
+    try:
+        while True:
+            time.sleep(1)
+    except KeyboardInterrupt:
+        cleanup()
 
 
 def start_backend():
@@ -58,8 +95,14 @@ def start_backend():
         
         threading.Thread(target=read_output, args=(backend_process.stdout, "Backend"), daemon=True).start()
         threading.Thread(target=read_output, args=(backend_process.stderr, "Backend"), daemon=True).start()
+
+        health_payload = wait_for_backend_health()
+        if health_payload:
+            analyzer_mode = "tasks" if health_payload.get("posture_analyzer_available") else "unavailable"
+            print(f"✓ Backend started successfully ({analyzer_mode} analyzer)")
+        else:
+            print("✓ Backend process started successfully")
         
-        print("✓ Backend started successfully")
         return True
     except Exception as e:
         print(f"✗ Error starting backend: {e}")
@@ -75,12 +118,14 @@ def start_frontend():
     print("="*60)
     print("Frontend URL: http://localhost:5173")
     print()
+
+    npm_command = resolve_npm_command()
     
     # Check if node_modules exists
     if not (FRONTEND_DIR / "node_modules").exists():
         print("📦 Installing dependencies (first run)...")
         install_deps = subprocess.Popen(
-            ["npm", "install"],
+            [npm_command, "install"],
             cwd=FRONTEND_DIR,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE
@@ -90,7 +135,7 @@ def start_frontend():
     
     try:
         frontend_process = subprocess.Popen(
-            ["npm", "run", "dev"],
+            [npm_command, "run", "dev"],
             cwd=FRONTEND_DIR,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
@@ -178,9 +223,13 @@ Examples:
     print("="*60)
     
     if args.backend_only:
-        start_backend()
+        if start_backend():
+            print("Press Ctrl+C to stop\n")
+            run_forever()
     elif args.frontend_only:
-        start_frontend()
+        if start_frontend():
+            print("Press Ctrl+C to stop\n")
+            run_forever()
     else:
         # Start both
         backend_ok = start_backend()
@@ -194,13 +243,8 @@ Examples:
             print("\n🌐 Open your browser: http://localhost:5173")
             print("\n📚 API Documentation: http://127.0.0.1:8000/docs")
             print("Press Ctrl+C to stop\n")
-            
-            # Keep running
-            try:
-                while True:
-                    time.sleep(1)
-            except KeyboardInterrupt:
-                cleanup()
+
+            run_forever()
         else:
             print("\n✗ Failed to start all services")
             cleanup()
