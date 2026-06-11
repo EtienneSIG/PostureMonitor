@@ -93,7 +93,7 @@ class PostureAnalyzer:
             'medium': {'angle_threshold': 18, 'alignment_threshold': 0.15, 'shoulder_threshold': 0.06, 'head_sensitivity': 0.08, 'shoulder_elevation_threshold': 0.18},
             'high': {'angle_threshold': 14, 'alignment_threshold': 0.12, 'shoulder_threshold': 0.05, 'head_sensitivity': 0.06, 'shoulder_elevation_threshold': 0.15}
         }
-        self.current_sensitivity = 'low'  # Changé de 'medium' à 'low' pour réduire les détections
+        self.current_sensitivity = 'very_low'  # Most tolerant by default to avoid alert spam in desk_work mode
         
         # Mode-specific thresholds for desk work - Adjusted to be more tolerant
         self.desk_work_thresholds = {
@@ -129,9 +129,9 @@ class PostureAnalyzer:
         
         # Enhanced detection parameters - Much more forgiving alerting
         self.consecutive_bad_frames = 0
-        self.frames_needed_for_alert = 18  # Need more consecutive bad frames (was 12)
+        self.frames_needed_for_alert = 45  # Require sustained bad posture before alerting (avoids spam)
         self.posture_history = []
-        self.history_length = 20  # Longer history for much smoother detection (was 15)
+        self.history_length = 30  # Longer history for much smoother detection
         
         # Audio alerts system
         self.alerter = PostureAlerter()

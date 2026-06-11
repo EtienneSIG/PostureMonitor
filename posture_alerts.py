@@ -13,7 +13,7 @@ class PostureAlerter:
             self.sound_enabled = False
         self.alerts_enabled = True
         self.last_alert_time = 0
-        self.alert_cooldown = 5.0
+        self.alert_cooldown = 20.0
     
     def can_alert(self):
         if not self.alerts_enabled:
