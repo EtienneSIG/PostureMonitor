@@ -80,7 +80,11 @@ class PostureAnalyzer:
                 'focus_areas': ['head', 'shoulders', 'neck_angle', 'arm_position']
             }
         }
-        self.current_mode = 'general'
+        # Default to 'desk_work' so head tilt and arm position are also
+        # considered for alerts (not just shoulders / forward head). Can be
+        # overridden via the POSTURE_MODE environment variable.
+        _mode = os.getenv('POSTURE_MODE', 'desk_work').strip().lower()
+        self.current_mode = _mode if _mode in self.monitoring_modes else 'desk_work'
         
         # Sensitivity thresholds - Adjusted for less frequent "minor" detections
         self.sensitivity_levels = {
