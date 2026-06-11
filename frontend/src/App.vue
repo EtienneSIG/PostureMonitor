@@ -13,7 +13,7 @@
     <div v-else class="app-container">
       <header class="app-header">
         <div class="container">
-          <h1>🧍 Posture Monitor Pro</h1>
+          <h1>🧍 Posture Monitor</h1>
           <nav class="nav">
             <button 
               @click="currentPage = 'dashboard'" 
@@ -63,7 +63,7 @@
       </main>
 
       <footer class="app-footer">
-        <p>&copy; 2026 Posture Monitor Pro. All data is processed locally. User: {{ userStore.userEmail || 'Guest' }}</p>
+        <p>&copy; 2026 Posture Monitor. All data is processed locally. User: {{ userStore.userEmail || 'Guest' }}</p>
       </footer>
     </div>
   </div>

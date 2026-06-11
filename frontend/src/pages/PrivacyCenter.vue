@@ -9,7 +9,7 @@
       <!-- Consent Management -->
       <div class="card">
         <h3>✓ Consent Management</h3>
-        <p>You have provided explicit consent to use Posture Monitor Pro.</p>
+        <p>You have provided explicit consent to use Posture Monitor.</p>
         <p class="consent-date">Consented on: {{ userStore.user?.consent_given_at }}</p>
         
         <button @click="withdrawConsent" class="danger">

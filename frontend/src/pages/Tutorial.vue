@@ -2,7 +2,7 @@
   <div class="pages">
     <div class="page-header">
       <h2>📘 Tutorial</h2>
-      <p>How to get started with Posture Monitor Pro in a few simple steps</p>
+      <p>How to get started with Posture Monitor in a few simple steps</p>
     </div>
 
     <!-- Quick steps -->
@@ -86,7 +86,7 @@
     <div class="card disclaimer-card">
       <h3>⚠️ Important</h3>
       <p>
-        Posture Monitor Pro is <strong>not a medical device</strong>. The metrics are indicative aids
+        Posture Monitor is <strong>not a medical device</strong>. The metrics are indicative aids
         to encourage better posture habits and do not constitute medical advice or diagnosis.
         Use of the application is at your own responsibility. For any health concern, consult a
         qualified healthcare professional.

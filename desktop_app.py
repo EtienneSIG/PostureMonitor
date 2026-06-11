@@ -92,7 +92,7 @@ def main() -> None:
     from backend.app import app
 
     print("=" * 60)
-    print("  Posture Monitor Pro")
+    print("  Posture Monitor")
     print("=" * 60)
     print(f"  Opening {url}")
     print("  Close this window to stop the application.")
