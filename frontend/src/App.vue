@@ -37,6 +37,13 @@
               Privacy & Data
             </button>
             <button 
+              @click="currentPage = 'tutorial'" 
+              :class="{ active: currentPage === 'tutorial' }"
+              class="nav-btn"
+            >
+              Tutorial
+            </button>
+            <button 
               @click="handleLogout"
               class="nav-btn logout"
             >
@@ -51,6 +58,7 @@
           <Dashboard v-show="currentPage === 'dashboard'" :active="currentPage === 'dashboard'" />
           <PostureMonitor v-show="currentPage === 'monitor'" :active="currentPage === 'monitor'" />
           <PrivacyCenter v-show="currentPage === 'privacy'" />
+          <Tutorial v-show="currentPage === 'tutorial'" />
         </div>
       </main>
 
@@ -70,6 +78,7 @@ import AgeGate from './components/AgeGate.vue'
 import Dashboard from './pages/Dashboard.vue'
 import PostureMonitor from './pages/PostureMonitor.vue'
 import PrivacyCenter from './pages/PrivacyCenter.vue'
+import Tutorial from './pages/Tutorial.vue'
 
 const userStore = useUserStore()
 const currentPage = ref('dashboard')
